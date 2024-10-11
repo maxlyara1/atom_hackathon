@@ -8,7 +8,8 @@
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4;
+            background-color: #f4f4f4; /* Цвет фона по умолчанию (светлая тема) */
+            color: #333; /* Цвет текста по умолчанию (светлая тема) */
             margin: 0;
             padding: 0;
             display: flex;
@@ -17,12 +18,15 @@
             height: 100vh;
             flex-direction: column;
             text-align: center;
+            transition: background-color 0.3s, color 0.3s; /* Плавный переход */
         }
 
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
             color: #333;
+            max-width: 600px; /* Ограничение ширины заголовка */
+            text-align: center; /* Центрирование текста */
         }
 
         form {
@@ -83,17 +87,38 @@
             background-color: #0056b3;
         }
 
-        /* Style for the GIF container */
+        /* Стили для темной темы */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #333; /* Цвет фона для темной темы */
+                color: #f4f4f4; /* Цвет текста для темной темы */
+            }
+
+            textarea, input[type="file"], input[type="text"] {
+                border-color: #777; /* Цвет рамки для полей ввода в темной теме */
+            }
+
+            button {
+                background-color: #4CAF50;
+            }
+
+            .support-button {
+                background-color: #007BFF;
+            }
+        }
+
+        /* Стиль для контейнера GIF */
         #gifContainer {
-            display: none; /* Hidden by default */
+            display: none; /* Скрыто по умолчанию */
             margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Загрузите файл или введите текст</h1>
+    <h1>Автоматизированная проверка требований в сертифицируемом контуре</h1>
     <form action="/submit" method="POST" enctype="multipart/form-data">
         <textarea name="user_text" placeholder="Введите текст для анализа"></textarea>
+        <h1>ИЛИ</h1>
         <input type="file" name="files" multiple />
         <button type="submit">Отправить</button>
     </form>
@@ -101,7 +126,7 @@
     <!-- Кнопка для связи с техподдержкой -->
     <button class="support-button" id="supportButton">Связаться с техподдержкой</button>
 
-    <!-- GIF Container -->
+    <!-- Контейнер для GIF -->
     <div id="gifContainer">
         <img src="https://gifdb.com/images/high/chipi-chipi-chapa-chapa-cat-head-swaying-yws94j7vme1iiv04.gif" alt="Chipi Chipi" />
     </div>
@@ -114,3 +139,4 @@
     </script>
 </body>
 </html>
+
