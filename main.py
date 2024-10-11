@@ -5,7 +5,7 @@ import pandas as pd
 import uvicorn
 import os
 
-app = FastAPI()
+app = FastAPI() 
 
 # Указываем путь к папке с шаблонами
 templates = Jinja2Templates(directory="templates")
