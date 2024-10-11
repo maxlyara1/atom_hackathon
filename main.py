@@ -1,9 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import pandas as pd
-from io import BytesIO
 import uvicorn
 import os
 
