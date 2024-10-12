@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загрузка отчета</title>
+    <title>Результат анализа</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500&display=swap" rel="stylesheet">
     <style>
         body {
@@ -34,8 +34,7 @@
             word-wrap: break-word;
         }
 
-        a {
-            text-decoration: none;
+        button {
             padding: 10px 20px;
             font-size: 1rem;
             color: white;
@@ -46,7 +45,7 @@
             transition: background-color 0.3s;
         }
 
-        a:hover {
+        button:hover {
             background-color: #45a049;
         }
 
@@ -75,10 +74,8 @@
     </style>
 </head>
 <body>
-    <h1>Файлы обработаны</h1>
-    <p>Ваш отчет готов. Скачайте его по ссылке ниже:</p>
-    <a href="{{ result }}">Загрузить отчет</a>
-    <br><br>
+    <h1>Результат анализа текста</h1>
+    <p>{{ response_text }}</p>
     <a href="/"><button>Вернуться на главную</button></a>
 </body>
 </html>

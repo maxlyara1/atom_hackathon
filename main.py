@@ -1,79 +1,51 @@
 from fastapi import FastAPI, File, UploadFile, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import pandas as pd
 import uvicorn
-import os
+import logging
+import io
 
-app = FastAPI() 
+# Import the model from the separate file
+from models.models import MyModel
 
-# Указываем путь к папке с шаблонами
+app = FastAPI()
+
 templates = Jinja2Templates(directory="templates")
 
-# Папки для загрузки файлов и результатов
-UPLOAD_DIR = "uploads"
-RESULT_DIR = "results"
+model = MyModel()
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(RESULT_DIR, exist_ok=True)
-
-
-# Рендеринг HTML страницы
+# Main page with form
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("interactive.html", {"request": request})
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
-# Обработчик загрузки файлов
-@app.post("/upload")
-async def upload_files(name: str = Form(...), files: list[UploadFile] = File(...)):
-    file_paths = []
+@app.post("/submit")
+async def submit_form(request: Request, files: list[UploadFile] = File(None), user_text: str = Form(None)):
+    logging.info(f"Received POST request with files: {files}, user_text: '{user_text}'")
 
-    # Сохраняем загруженные файлы
-    for file in files:
-        file_location = f"{UPLOAD_DIR}/{file.filename}"
-        with open(file_location, "wb") as f:
-            f.write(await file.read())
-        file_paths.append(file_location)
+    if user_text:
+        # If user submitted text
+        response_text = f"Модель ответила: '{model.process_text(user_text)}'"
+        return templates.TemplateResponse("result_text.html", {"request": request, "response_text": response_text})
+    
+    elif files:
+        # If files were uploaded
+        file_contents = []
+        for file in files:
+            # Read the uploaded file into memory
+            content = await file.read()
+            file_contents.append(content)
 
-    # Обработка файлов через модель (тут вызывается функция, обрабатывающая данные)
-    result_file_path = process_files(file_paths, name)
+        # Process the uploaded files to generate an empty Excel file in memory
+        result_file = model.process_files(file_contents)
 
-    # Возвращаем HTML с ссылкой на скачивание результата
-    return templates.TemplateResponse(
-        "interactive.html",
-        {
-            "request": Request,
-            "result": f"/download/{os.path.basename(result_file_path)}",
-        },
-    )
+        # Create a response to download the resulting file
+        return HTMLResponse(content=result_file.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=result.xlsx"})
 
-
-# Функция для обработки файлов (здесь можно добавить логику модели)
-def process_files(file_paths, requirement):
-    all_data = []
-    for file_path in file_paths:
-        df = pd.read_excel(file_path)  # Пример чтения Excel
-        df["Требование"] = requirement  # Добавляем новое требование
-        all_data.append(df)
-
-    # Объединяем данные и сохраняем в Excel
-    result_df = pd.concat(all_data, ignore_index=True)
-    result_filename = f"{RESULT_DIR}/result_{requirement}.xlsx"
-    result_df.to_excel(result_filename, index=False)
-
-    return result_filename
-
-
-# Endpoint для скачивания файла
-@app.get("/download/{filename}")
-def download_file(filename: str):
-    file_path = f"{RESULT_DIR}/{filename}"
-    return FileResponse(path=file_path, filename=filename)
-
-
-# # Статические файлы
-# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
