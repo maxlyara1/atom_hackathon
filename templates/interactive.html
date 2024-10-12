@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загрузка файлов</title>
+    <title>Иканам_чипи_чипи</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4;
+            background-color: #f4f4f4; /* Цвет фона по умолчанию (светлая тема) */
+            color: #333; /* Цвет текста по умолчанию (светлая тема) */
             margin: 0;
             padding: 0;
             display: flex;
@@ -17,12 +18,15 @@
             height: 100vh;
             flex-direction: column;
             text-align: center;
+            transition: background-color 0.3s, color 0.3s; /* Плавный переход */
         }
 
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
             color: #333;
+            max-width: 600px; /* Ограничение ширины заголовка */
+            text-align: center; /* Центрирование текста */
         }
 
         form {
@@ -31,10 +35,20 @@
             align-items: center;
         }
 
-        input[type="text"], input[type="file"] {
+        textarea {
+            width: 450px;
             padding: 10px;
             margin: 10px 0;
-            width: 300px;
+            font-size: 1rem;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+        }
+
+        input[type="file"], input[type="text"] {
+            padding: 10px;
+            margin: 10px 0;
+            width: 450px;
             font-size: 1rem;
             border: 2px solid #ccc;
             border-radius: 5px;
@@ -55,24 +69,96 @@
             background-color: #45a049;
         }
 
-        .thank-you {
+        .support-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .support-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Стили для темной темы */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #333; /* Цвет фона для темной темы */
+                color: #f4f4f4; /* Цвет текста для темной темы */
+            }
+
+            textarea, input[type="file"], input[type="text"] {
+                border-color: #777; /* Цвет рамки для полей ввода в темной теме */
+            }
+
+            button {
+                background-color: #4CAF50;
+            }
+
+            .support-button {
+                background-color: #007BFF;
+            }
+        }
+
+        /* Стиль для контейнера GIF */
+        #gifContainer {
+            display: none; /* Скрыто по умолчанию */
             margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Загрузка файлов для анализа</h1>
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="text" name="name" placeholder="Введите требование" required />
-        <input type="file" name="files" multiple required />
+    <h1>Автоматизированная проверка требований в сертифицируемом контуре</h1>
+    <h2>    <br /><br />  </h2>
+    <form action="/submit" method="POST" enctype="multipart/form-data">
+        <textarea name="user_text" placeholder="Введите текст для анализа"></textarea>
+        <h2>ИЛИ</h2>
+        <input type="file" name="files" multiple />
         <button type="submit">Отправить</button>
     </form>
 
-    {% if result %}
-    <div class="thank-you">
-        <h2>Файл загружен. Пожалуйста, ожидайте</h2>
-        <p>Результат проверки доступен по ссылке: <a href="{{ result }}">скачать здесь</a></p>
+    <!-- Кнопка для связи с техподдержкой -->
+    <button class="support-button" id="supportButton">Связаться с техподдержкой</button>
+
+    <!-- Контейнер для GIF -->
+    <div id="gifContainer">
+        <img src="https://gifdb.com/images/high/chipi-chipi-chapa-chapa-cat-head-swaying-yws94j7vme1iiv04.gif" alt="Chipi Chipi" />
     </div>
-    {% endif %}
+
+    <!-- Скрипт для проверки формы -->
+    <script>
+        const form = document.querySelector('form');
+        const textArea = document.querySelector('textarea');
+        const fileInput = document.querySelector('input[type="file"]');
+        const submitButton = document.querySelector('button[type="submit"]');
+
+        // Функция для проверки, заполнены ли поля формы
+        function checkFormValidity() {
+            if (textArea.value.trim() === '' && fileInput.files.length === 0) {
+                submitButton.disabled = true;
+                submitButton.style.backgroundColor = '#ccc'; // Изменяем стиль, чтобы кнопка выглядела отключенной
+                submitButton.style.cursor = 'not-allowed';
+            } else {
+                submitButton.disabled = false;
+                submitButton.style.backgroundColor = '#4CAF50'; // Возвращаем стиль активной кнопки
+                submitButton.style.cursor = 'pointer';
+            }
+        }
+
+        // Проверяем форму при изменении полей
+        textArea.addEventListener('input', checkFormValidity);
+        fileInput.addEventListener('change', checkFormValidity);
+
+        // Проверка при загрузке страницы
+        window.addEventListener('load', checkFormValidity);
+    </script>
 </body>
 </html>
+
