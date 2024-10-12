@@ -19,21 +19,18 @@
             flex-direction: column;
             text-align: center;
         }
-
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
             color: #333;
             max-width: 600px;
         }
-
         p {
             font-size: 1.25rem;
             margin-bottom: 1.5rem;
             max-width: 800px;
             word-wrap: break-word;
         }
-
         button {
             padding: 10px 20px;
             font-size: 1rem;
@@ -44,11 +41,9 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-
         button:hover {
             background-color: #45a049;
         }
-
         .support-button {
             position: absolute;
             bottom: 20px;
@@ -60,26 +55,33 @@
             border-radius: 5px;
             cursor: pointer;
         }
-
-        /* Стили для темной темы */
+        .response-box {
+            border: 2px solid #333;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            text-align: center;
+        }
         @media (prefers-color-scheme: dark) {
             body {
                 background-color: #333;
                 color: #f4f4f4;
             }
-
             h1, p {
                 color: #f4f4f4;
             }
-
             button {
                 background-color: #4CAF50;
             }
-
             button:hover {
                 background-color: #45a049;
             }
-
+            .response-box {
+                background-color: #444;
+                border-color: #f4f4f4;
+            }
             .support-button {
                 background-color: #007BFF;
             }
@@ -87,8 +89,10 @@
     </style>
 </head>
 <body>
-    <h1>Результат анализа текста</h1>
-    <p>{{ response_text }}</p>
+    <div class="response-box">
+        <p>{{ response_text }}</p>
+    </div>
     <a href="/"><button>Вернуться на главную</button></a>
 </body>
 </html>
+

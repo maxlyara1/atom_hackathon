@@ -1,0 +1,92 @@
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Страница ожидания</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .gif-container {
+            margin-bottom: 1.5rem;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            color: white;
+            background-color: #4CAF50; /* Цвет кнопки по умолчанию */
+            border: none;
+            border-radius: 5px;
+            cursor: not-allowed;
+            transition: background-color 0.3s ease;
+        }
+
+        button:enabled {
+            background-color: #45a049; /* Новый цвет кнопки при активации */
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc; /* Цвет кнопки, когда она отключена */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #333; /* Цвет фона для темной темы */
+                color: #f4f4f4; /* Цвет текста для темной темы */
+            }
+
+            h1 {
+                color: #f4f4f4; /* Цвет заголовков для темной темы */
+            }
+
+            button:enabled {
+                background-color: #45a049; /* Новый цвет кнопки при активации в темной теме */
+            }
+        }
+    </style>
+    <script>
+        function checkStatus(taskId) {
+            fetch(`/check_status/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'completed') {
+                        document.getElementById('result-button').disabled = false;
+                    } else {
+                        setTimeout(() => checkStatus(taskId), 2000);
+                    }
+                });
+        }
+    </script>
+</head>
+<body onload="checkStatus('{{ task_id }}')">
+    <h1>Модель запущена, ожидайте, пожалуйста :)</h1>
+
+    <div class="gif-container">
+        <img src="https://media1.tenor.com/m/5BYK-WS0__gAAAAC/cool-fun.gif" alt="Cool and Fun Cat">
+    </div>
+
+    <button id="result-button" disabled onclick="window.location.href='/results/{{ task_id }}'">
+        Показать результаты
+    </button>
+</body>
+</html>
+

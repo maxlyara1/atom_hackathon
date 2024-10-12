@@ -1,9 +1,12 @@
 import pandas as pd
 import io
+import time
+
 
 class MyModel:
     def process_text(self, text: str):
         # Reverse the input text
+        time.sleep(3)  
         return text[::-1]
 
     def process_files(self, file_paths):
