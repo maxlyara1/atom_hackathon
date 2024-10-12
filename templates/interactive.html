@@ -21,10 +21,14 @@
             transition: background-color 0.3s, color 0.3s; /* Плавный переход */
         }
 
+        h1, h2 {
+            color: #333; /* Цвет заголовков по умолчанию (светлая тема) */
+            transition: color 0.3s; /* Плавный переход цвета заголовков */
+        }
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
-            color: #333;
             max-width: 600px; /* Ограничение ширины заголовка */
             text-align: center; /* Центрирование текста */
         }
@@ -92,6 +96,10 @@
             body {
                 background-color: #333; /* Цвет фона для темной темы */
                 color: #f4f4f4; /* Цвет текста для темной темы */
+            }
+
+            h1, h2 {
+                color: #f4f4f4; /* Цвет заголовков для темной темы */
             }
 
             textarea, input[type="file"], input[type="text"] {
@@ -171,4 +179,3 @@
     </script>
 </body>
 </html>
-
