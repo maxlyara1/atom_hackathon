@@ -116,7 +116,7 @@
 </head>
 <body>
     <h1>Автоматизированная проверка требований в сертифицируемом контуре</h1>
-    <h2>    <br /><br />  </h2>
+    <h2><br /><br /></h2>
     <form action="/submit" method="POST" enctype="multipart/form-data">
         <textarea name="user_text" placeholder="Введите текст для анализа"></textarea>
         <h2>ИЛИ</h2>
@@ -158,6 +158,16 @@
 
         // Проверка при загрузке страницы
         window.addEventListener('load', checkFormValidity);
+
+        // Скрипт для работы кнопки техподдержки
+        document.getElementById('supportButton').addEventListener('click', function() {
+            var gifContainer = document.getElementById('gifContainer');
+            if (gifContainer.style.display === 'none' || gifContainer.style.display === '') {
+                gifContainer.style.display = 'block'; // Показать GIF
+            } else {
+                gifContainer.style.display = 'none'; // Скрыть GIF
+            }
+        });
     </script>
 </body>
 </html>
