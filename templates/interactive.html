@@ -132,11 +132,32 @@
         <img src="https://gifdb.com/images/high/chipi-chipi-chapa-chapa-cat-head-swaying-yws94j7vme1iiv04.gif" alt="Chipi Chipi" />
     </div>
 
+    <!-- Скрипт для проверки формы -->
     <script>
-        document.getElementById('supportButton').addEventListener('click', function() {
-            var gifContainer = document.getElementById('gifContainer');
-            gifContainer.style.display = gifContainer.style.display === 'none' ? 'block' : 'none';
-        });
+        const form = document.querySelector('form');
+        const textArea = document.querySelector('textarea');
+        const fileInput = document.querySelector('input[type="file"]');
+        const submitButton = document.querySelector('button[type="submit"]');
+
+        // Функция для проверки, заполнены ли поля формы
+        function checkFormValidity() {
+            if (textArea.value.trim() === '' && fileInput.files.length === 0) {
+                submitButton.disabled = true;
+                submitButton.style.backgroundColor = '#ccc'; // Изменяем стиль, чтобы кнопка выглядела отключенной
+                submitButton.style.cursor = 'not-allowed';
+            } else {
+                submitButton.disabled = false;
+                submitButton.style.backgroundColor = '#4CAF50'; // Возвращаем стиль активной кнопки
+                submitButton.style.cursor = 'pointer';
+            }
+        }
+
+        // Проверяем форму при изменении полей
+        textArea.addEventListener('input', checkFormValidity);
+        fileInput.addEventListener('change', checkFormValidity);
+
+        // Проверка при загрузке страницы
+        window.addEventListener('load', checkFormValidity);
     </script>
 </body>
 </html>
