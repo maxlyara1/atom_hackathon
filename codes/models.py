@@ -4,13 +4,6 @@ import time
 
 
 class MyModel:
-    def process_text(self, text: str):
-        # Reverse the input text
-        time.sleep(3)
-        return text[::-1]
-
-    def process_files(self, file_paths):
-        result_file = io.BytesIO()
-        pd.DataFrame().to_excel(result_file, index=False)
-        result_file.seek(0)  # Move to the beginning of the BytesIO object
-        return result_file  # Return the BytesIO object
+    def process_files(self, df):
+        
+        return file_path_df  # Return the BytesIO object

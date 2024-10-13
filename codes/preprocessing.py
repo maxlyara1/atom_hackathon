@@ -88,6 +88,9 @@ class PreprocessRegulations:
     def __init__(self) -> None:
         # нужно обработать все папки и все файлы внутри этой директории
         self.path = "train_data/Регламенты сертификации"
+        model_name = "bert-base-uncased"  # можно выбрать другие модели, например, 'bert-base-cased'
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)
+        self.model = BertModel.from_pretrained(model_name)
 
     def __read_pdf(self, path):
         # Открытие PDF файла
@@ -179,7 +182,7 @@ class PreprocessRegulations:
                     # Получаем имя дочерней папки
                     subdirectory_name = os.path.basename(root)
                     # Добавляем новую колонку с названием папки
-                    df.insert(0, 'Subdirectory', subdirectory_name)
+                    df.insert(0, "Subdirectory", subdirectory_name)
                     all_data.append(df)
 
         # Объединение всех данных в один DataFrame
@@ -187,8 +190,17 @@ class PreprocessRegulations:
         return regulations_df
 
     def get_embeddings_df(self):
-        df = self.__prepare_regulations_df(self.path)
+        def get_embedding(self, text):
+            inputs = self.tokenizer(
+                text, return_tensors="pt", padding=True, truncation=True, max_length=512
+            )
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                # Используем эмбеддинг токена [CLS], который представляет всё предложение
+                return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
+        df = self.__prepare_regulations_df(self.path)
+        
 
         return df
 
