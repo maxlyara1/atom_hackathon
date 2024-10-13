@@ -201,14 +201,9 @@ class PreprocessRegulations:
                 # Используем эмбеддинг токена [CLS], который представляет всё предложение
                 return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-        dk = self.__prepare_regulations_df(self.path)
-
-        id = dk.index.to_list()
+        df = self.__prepare_regulations_df(self.path)
 
         for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
-
-            df = dk.loc[id]  # Используйте loc для работы с индексами
-
             # Применение функций для вычисления эмбеддингов и схожести
             df[f"emb{i}"] = (
                 df[i]
@@ -228,16 +223,29 @@ class GetPairs:
     def calculate_cosine_similarity(embedding, target_embedding_2d):
         return cosine_similarity(embedding, target_embedding_2d).flatten()[0]
 
+    def get_embedding(self, text):
+        inputs = self.tokenizer(
+            text, return_tensors="pt", padding=True, truncation=True, max_length=512
+        )
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            # Используем эмбеддинг токена [CLS], который представляет всё предложение
+            return outputs.last_hidden_state[:, 0, :].cpu().numpy()
+
     def get_two_texts(df_usecase, df_regulations):
-        
+        for target in df_usecase["summary"].values:
+            target_embedding = get_embedding(
+                text_preprocessor.clean_text(target, text_preprocessor.stop_words)
+            )
             for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
                 similarity = f"similarity_{i}"
-                df[similarity] = df[f"emb_{i}"].apply(
-                    lambda x: self.calculate_cosine_similarity(x, target_embedding)
+                df_regulations[similarity] = df[f"emb_{i}"].apply(
+                    lambda x: calculate_cosine_similarity(x, target_embedding)
                 )
                 # Поиск максимального значения схожести
-                max_similarity = df[similarity].max()
+                max_similarity = df_regulations[similarity].max()
                 # Обновление списка индексов для следующей итерации
-                df = df[df[similarity] == max_similarity]
-            
-
+                df_regulations = df_regulations[
+                    df_regulations[similarity] == max_similarity
+                ]
+                

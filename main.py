@@ -64,18 +64,20 @@ def get_usecase_path_list(user_text=None, uploaded_files=None):
 # Фоновая задача для запуска модели
 def run_model_task(task_id, user_text=None, uploaded_files=None):
     global task_status
-    path_list = get_usecase_path_list(user_text=user_text, uploaded_files=uploaded_files)
+    path_list = get_usecase_path_list(
+        user_text=user_text, uploaded_files=uploaded_files
+    )
 
     if user_text:
-        # Подготовка данных через PreprocessUseCases
-        df_usecase = preprocess.get_summarized_data(path_list)
-        df_regulations = preprocess.get_regulations_data()
-
-        # Получение пар текстов для модели
-        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-
+        # # Подготовка данных через PreprocessUseCases
+        # df_usecase = preprocess.get_summarized_data(path_list)
+        # df_regulations = preprocess.get_regulations_data()
+        # # Получение пар текстов для модели
+        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
         # Применение модели для обработки данных
-        df_result = model.process(df_for_model)
+        # result_df_path = model.process(df_for_model)
+        result_df_path = "results/model_data.xlsx"
+        df_result = pd.read_excel(result_df_path)
 
         # Сохраняем результат в BytesIO для скачивания
         bytesio_file = BytesIO()
@@ -95,15 +97,15 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         }
 
     elif uploaded_files:
-        # Обрабатываем загруженные файлы аналогично
-        df_usecase = preprocess.get_summarized_data(path_list)
-        df_regulations = preprocess.get_regulations_data()
-
-        # Получаем данные для модели
-        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-
-        # Применяем модель
-        df_result = model.process(df_for_model)
+        # # Подготовка данных через PreprocessUseCases
+        # df_usecase = preprocess.get_summarized_data(path_list)
+        # df_regulations = preprocess.get_regulations_data()
+        # # Получение пар текстов для модели
+        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # Применение модели для обработки данных
+        # result_df_path = model.process(df_for_model)
+        result_df_path = "results/model_data.xlsx"
+        df_result = pd.read_excel(result_df_path)
 
         # Сохраняем в BytesIO
         bytesio_file = BytesIO()
