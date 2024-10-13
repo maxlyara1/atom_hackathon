@@ -100,6 +100,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         # df_regulations = get_embeddings_df()
         # df_for_model =
         # result_file_path = model.process_files(file_contents)
+        result_file_path = "results/model_data.xlsx"
 
         # Читаем результат и сохраняем его в BytesIO
         df = pd.read_excel(result_file_path)
