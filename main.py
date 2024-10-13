@@ -178,14 +178,24 @@ async def results(request: Request, task_id: str):
 @app.get("/download/{task_id}")
 async def download_file(task_id: str):
     task_result = task_status.get(task_id)
-    if task_result and task_result["result"]:
-        # Передаем BytesIO как поток для скачивания
+    if task_result and task_result["type"] == "text" and task_result["result"]:
+        # Достаем объект BytesIO из результата и передаем его как поток для скачивания
+        bytesio_file = task_result["result"]["download_file"]
         return StreamingResponse(
-            task_result["result"],
+            bytesio_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
+        )
+    elif task_result and task_result["type"] == "file" and task_result["result"]:
+        # Для загруженных файлов, которые тоже в BytesIO
+        bytesio_file = task_result["result"]
+        return StreamingResponse(
+            bytesio_file,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
         )
     return {"error": "File not found"}
+
 
 
 if __name__ == "__main__":
