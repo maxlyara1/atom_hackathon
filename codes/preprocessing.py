@@ -9,24 +9,32 @@ from transformers import T5ForConditionalGeneration, T5Tokenizer
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import BertModel, BertTokenizer
 import torch
-import os
 import pdfplumber
-import re
+
+# Ensure NLTK stopwords are downloaded
+nltk.download("stopwords")
 
 
 class TextPreprocessor:
     def __init__(self):
+        # Load the English model for spaCy
         self.nlp = spacy.load("en_core_web_sm")
-        nltk.download("stopwords")
+        # Initialize stop words
         self.stop_words = set(stopwords.words("english"))
 
     def tokenize(self, text):
+        """
+        Tokenizes the input text after removing non-word characters.
+        """
         cleaned_text = re.sub(r"[^\w\s]", "", text)
         doc = self.nlp(cleaned_text)
         tokens = [token.text for token in doc]
         return tokens
 
     def clean_text(self, text):
+        """
+        Cleans the text by tokenizing, removing stop words, and lowercasing.
+        """
         cleaned_tokens = self.tokenize(text)
         filtered_tokens = [
             word.lower()
@@ -38,131 +46,128 @@ class TextPreprocessor:
 
 class PreprocessUseCases:
     def __init__(self) -> None:
+        # Initialize the T5 tokenizer and model for summarization
         self.tokenizer = T5Tokenizer.from_pretrained("t5-small")
         self.model = T5ForConditionalGeneration.from_pretrained("t5-small")
 
-    # Function to read .docx file
     def __read_docx(self, file_path):
+        """
+        Reads a .docx file and extracts its full text.
+        """
         doc = Document(file_path)
-        full_text = []
-        for para in doc.paragraphs:
-            full_text.append(para.text)
+        full_text = [para.text for para in doc.paragraphs]
         return "\n".join(full_text)
 
     def __summarize_one_text(self, input_text):
-        # Initialize the T5 tokenizer and model
-        tokenizer = self.tokenizer
-        model = self.model
-
-        # Prepare the input for the T5 model
-        input_ids = tokenizer.encode(
+        """
+        Summarizes the input text using the T5 model.
+        """
+        input_ids = self.tokenizer.encode(
             "summarize: " + input_text,
             return_tensors="pt",
             max_length=512,
             truncation=True,
         )
-        # Generate the summary
-        summary_ids = model.generate(
+        summary_ids = self.model.generate(
             input_ids, max_length=150, num_beams=4, early_stopping=True
         )
-        # Decode the summary
-        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-
+        summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary
 
-    def get_summarized_data(self, paths_list):
+    def get_summarized_data(self, paths_list, uploads_dir="uploads"):
+        """
+        Processes a list of .docx file paths, summarizes their content, and returns a DataFrame.
+        """
         data = []
         for path in paths_list:
             if path.endswith(".docx"):
-                full_path = os.path.join("uploads", path)
-                # Read the text from the .docx file
+                full_path = os.path.join(uploads_dir, path)
                 text = self.__read_docx(full_path)
                 summary = self.__summarize_one_text(text)
-                # Append the path and text to the data list
                 data.append([full_path, text, summary])
         df = pd.DataFrame(data, columns=["path_of_file", "text", "summary"])
         return df
 
 
 class PreprocessRegulations:
-    def __init__(self) -> None:
-        # нужно обработать все папки и все файлы внутри этой директории
-        self.path = "train_data/Регламенты сертификации"
-        model_name = "bert-base-uncased"  # можно выбрать другие модели, например, 'bert-base-cased'
+    def __init__(self, path="test_data/Регламенты сертификации") -> None:
+        """
+        Initializes the PreprocessRegulations class with the specified directory path.
+        """
+        self.path = path
+        model_name = (
+            "bert-base-uncased"  # You can choose other models, e.g., 'bert-base-cased'
+        )
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
         self.model = BertModel.from_pretrained(model_name)
 
     def __read_pdf(self, path):
-        # Открытие PDF файла
+        """
+        Reads a PDF file and extracts its text, splitting it into sections based on a regex pattern.
+        """
         with pdfplumber.open(path) as pdf:
             text = ""
             for page in pdf.pages:
-                text += page.extract_text()
-        # Разделение текста по пунктам (предположим, что пункты начинаются с цифры и точки, например "1.")
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        # Split text into sections assuming sections start with '5.' followed by numbers
         sections = re.split(r"(\n5(?:\.\d+)+\.)", text)
-        sections = sections[1:]
+        sections = sections[
+            1:
+        ]  # Remove the first split part which is before the first match
         df = {
-            "punkt": [
-                sections[i].replace("\n", "")
-                for i in range(len(sections))
-                if i % 2 == 0
+            "punkt": [sections[i].strip() for i in range(0, len(sections), 2)],
+            "text": [
+                sections[i + 1].strip()
+                for i in range(0, len(sections), 2)
+                if i + 1 < len(sections)
             ],
-            "text": [sections[i] for i in range(len(sections)) if i % 2 == 1],
         }
         dt = pd.DataFrame(df)
+        # Extract different levels of sections
         dt["section1"] = dt["punkt"].str.extract(r"(5\.\d)")
         dt["section2"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+)")
         dt["section3"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+)")
         dt["section4"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+\.\d+)")
         dt = dt.fillna("-1")
 
+        # Define helper functions to get main texts based on sections
         def get_main_text(row, df):
-            main_section = (
-                row["punkt"].split(".")[0] + "." + row["punkt"].split(".")[1]
-            )  # Берем первую часть '5.1' или '5.2'
-            match = df.loc[df["section1"] == main_section, "text"]
-            return match.values[0] if not match.empty else None
+            parts = row["punkt"].split(".")
+            if len(parts) >= 2:
+                main_section = f"{parts[0]}.{parts[1]}"  # e.g., '5.1'
+                match = df.loc[df["section1"] == main_section, "text"]
+                return match.values[0] if not match.empty else None
+            return None
 
         def get_main_text1(row, df):
-            # Формируем main_section для уровня '5.1.1'
             parts = row["punkt"].split(".")
             if len(parts) >= 3:
-                main_section = (
-                    f"{parts[0]}.{parts[1]}.{parts[2]}"  # Берем первые три части
-                )
-            else:
-                return None  # Возвращаем None, если меньше трех уровней
-
-            # Находим совпадение по section1 и возвращаем текст
-            match = df.loc[df["section2"] == main_section, "text"]
-            return match.values[0] if not match.empty else None
+                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}"  # e.g., '5.1.1'
+                match = df.loc[df["section2"] == main_section, "text"]
+                return match.values[0] if not match.empty else None
+            return None
 
         def get_main_text2(row, df):
-            # Формируем main_section для уровня '5.1.1.1'
             parts = row["punkt"].split(".")
             if len(parts) >= 4:
-                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}"  # Берем первые четыре части
-            else:
-                return None  # Возвращаем None, если меньше четырех уровней
-
-            # Находим совпадение по section2 и возвращаем текст
-            match = df.loc[df["section3"] == main_section, "text"]
-
-            return match.values[0] if not match.empty else None
+                main_section = (
+                    f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}"  # e.g., '5.1.1.1'
+                )
+                match = df.loc[df["section3"] == main_section, "text"]
+                return match.values[0] if not match.empty else None
+            return None
 
         def get_main_text_5(row, df):
-            # Формируем main_section для уровня '5.1.1.1.1'
             parts = row["punkt"].split(".")
             if len(parts) >= 5:
-                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}.{parts[4]}"  # Берем первые пять частей
-            else:
-                return None  # Возвращаем None, если меньше пяти уровней
+                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}.{parts[4]}"  # e.g., '5.1.1.1.1'
+                match = df.loc[df["section4"] == main_section, "text"]
+                return match.values[0] if not match.empty else None
+            return None
 
-            # Находим совпадение по section и возвращаем текст
-            match = df.loc[df["section4"] == main_section, "text"]
-            return match.values[0] if not match.empty else None
-
-        # Применяем функцию к DataFrame
+        # Apply helper functions to extract hierarchical sections
         dt["Глава"] = dt.apply(lambda row: get_main_text(row, dt), axis=1)
         dt["Подглава"] = dt.apply(lambda row: get_main_text1(row, dt), axis=1)
         dt["Подпункт"] = dt.apply(lambda row: get_main_text2(row, dt), axis=1)
@@ -171,81 +176,124 @@ class PreprocessRegulations:
         return cl
 
     def __prepare_regulations_df(self, path):
+        """
+        Walks through the specified directory and processes all PDF files.
+        """
         all_data = []
-        # Проход по всем файлам в директории и подпапках
         for root, dirs, files in os.walk(path):
             for file in files:
                 if file.endswith(".pdf"):
                     file_path = os.path.join(root, file)
-                    # Чтение PDF файлов и извлечение данных
                     df = self.__read_pdf(file_path)
-                    # Получаем имя дочерней папки
                     subdirectory_name = os.path.basename(root)
-                    # Добавляем новую колонку с названием папки
                     df.insert(0, "Subdirectory", subdirectory_name)
                     all_data.append(df)
-
-        # Объединение всех данных в один DataFrame
-        regulations_df = pd.concat(all_data, ignore_index=True)
-        return regulations_df
+        if all_data:
+            regulations_df = pd.concat(all_data, ignore_index=True)
+            return regulations_df
+        else:
+            return pd.DataFrame()
 
     def get_embeddings_df(self):
+        """
+        Generates embeddings for different sections of the regulations using BERT.
+        """
         text_preprocessor = TextPreprocessor()
 
-        def get_embedding(self, text):
+        def get_embedding(text):
             inputs = self.tokenizer(
                 text, return_tensors="pt", padding=True, truncation=True, max_length=512
             )
             with torch.no_grad():
                 outputs = self.model(**inputs)
-                # Используем эмбеддинг токена [CLS], который представляет всё предложение
+                # Use the [CLS] token embedding
                 return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
         df = self.__prepare_regulations_df(self.path)
 
-        for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
-            # Применение функций для вычисления эмбеддингов и схожести
-            df[f"emb{i}"] = (
+        # Generate embeddings for each hierarchical section
+        for i in ["Глава", "Подглава", "Подпункт", "под-подподпункт"]:
+            df[f"emb_{i}"] = (
                 df[i]
-                .apply(
-                    lambda x: text_preprocessor.clean_text(
-                        x, text_preprocessor.stop_words
-                    )
-                )
-                .apply(lambda x: get_embedding(x.lower()))
+                .fillna("")
+                .apply(lambda x: text_preprocessor.clean_text(x))
+                .apply(lambda x: get_embedding(x.lower()) if x else None)
             )
-
         return df
 
 
 class GetPairs:
+    def __init__(self):
+        # Initialize the BERT tokenizer and model (ensure consistency with PreprocessRegulations)
+        model_name = "bert-base-uncased"
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)
+        self.model = BertModel.from_pretrained(model_name)
 
-    def calculate_cosine_similarity(embedding, target_embedding_2d):
-        return cosine_similarity(embedding, target_embedding_2d).flatten()[0]
+    def calculate_cosine_similarity(self, embedding, target_embedding_2d):
+        """
+        Calculates cosine similarity between two embeddings.
+        """
+        if embedding is not None and target_embedding_2d is not None:
+            return cosine_similarity(embedding, target_embedding_2d).flatten()[0]
+        else:
+            return 0.0
 
     def get_embedding(self, text):
+        """
+        Generates an embedding for the given text using BERT.
+        """
         inputs = self.tokenizer(
             text, return_tensors="pt", padding=True, truncation=True, max_length=512
         )
         with torch.no_grad():
             outputs = self.model(**inputs)
-            # Используем эмбеддинг токена [CLS], который представляет всё предложение
+            # Use the [CLS] token embedding
             return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-    def get_two_texts(df_usecase, df_regulations):
-        for target in df_usecase["summary"].values:
-            target_embedding = get_embedding(
-                text_preprocessor.clean_text(target, text_preprocessor.stop_words)
-            )
-            for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
-                similarity = f"similarity_{i}"
-                df_regulations[similarity] = df[f"emb_{i}"].apply(
-                    lambda x: calculate_cosine_similarity(x, target_embedding)
-                )
-                # Поиск максимального значения схожести
-                max_similarity = df_regulations[similarity].max()
-                # Обновление списка индексов для следующей итерации
-                df_regulations = df_regulations[
-                    df_regulations[similarity] == max_similarity
-                ]
-                
+    def get_two_texts(self, df_usecase, df_regulations, output_path):
+        """
+        Finds the most similar regulation sections for each use case summary and exports the results to Excel.
+        """
+        text_preprocessor = TextPreprocessor()
+        data = []
+
+        for idx, target in enumerate(df_usecase["summary"].values):
+            cleaned_target = text_preprocessor.clean_text(target)
+            target_embedding = self.get_embedding(cleaned_target.lower())
+
+            best_match = {
+                "usecase_text": target,
+                "certifiable_object": "",
+                "regulation_summary": "",
+                "similarity_Глава": 0.0,
+                "similarity_Подглава": 0.0,
+                "similarity_Подпункт": 0.0,
+                "similarity_под-подподпункт": 0.0,
+            }
+
+            for i in ["Глава", "Подглава", "Подпункт", "под-подподпункт"]:
+                similarity_col = f"similarity_{i}"
+                emb_col = f"emb_{i}"
+                if emb_col in df_regulations.columns:
+                    df_regulations[similarity_col] = df_regulations[emb_col].apply(
+                        lambda x: self.calculate_cosine_similarity(x, target_embedding)
+                    )
+                    max_similarity = df_regulations[similarity_col].max()
+                    if (
+                        pd.notnull(max_similarity)
+                        and max_similarity > best_match[f"similarity_{i}"]
+                    ):
+                        best_match[f"similarity_{i}"] = max_similarity
+                        match_row = df_regulations.loc[
+                            df_regulations[similarity_col] == max_similarity
+                        ].iloc[0]
+                        best_match["certifiable_object"] = match_row["Subdirectory"]
+                        best_match["regulation_summary"] += f"{i}: {match_row[i]} "
+
+            data.append(best_match)
+
+        # Create DataFrame from the collected data
+        result_df = pd.DataFrame(data)
+        # Export the results to an Excel file
+        result_df.to_excel(output_path, index=False)
+        return output_path
