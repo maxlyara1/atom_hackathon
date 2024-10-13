@@ -10,6 +10,7 @@ from io import BytesIO
 # подгружаем функции из других файлов
 from codes.preprocessing import TextPreprocessor
 from codes.preprocessing import PreprocessUseCases
+from codes.preprocessing import PreprocessRegulations
 from codes.preprocessing import GetPairs
 from codes.models import MyModel
 
@@ -17,14 +18,13 @@ app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-preprocess = PreprocessUseCases()
-model = MyModel()
+
 text_preprocessor = TextPreprocessor()
-get_pairs = GetPairs()
-preprocess = PreprocessUseCases()
+preprocess_use_case = PreprocessUseCases()
+preprocess_regulations = PreprocessRegulations()
 model = MyModel()
-text_preprocessor = TextPreprocessor()
 get_pairs = GetPairs()
+
 task_status = {}  # Словарь для хранения статусов задач
 
 
@@ -70,12 +70,14 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
 
     if user_text:
         # Подготовка данных через PreprocessUseCases
-        df_usecase = preprocess.get_summarized_data(path_list)
-        df_regulations = preprocess.get_regulations_data()
-        # Получение пар текстов для модели
-        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # Применение модели для обработки данных
-        result_df_path = model.process(df_for_model)
+        # df_usecase = preprocess_use_case.get_summarized_data(path_list)
+        # df_regulations = preprocess_regulations.get_embeddings_df()
+        # # Получение пар текстов для модели
+        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # # Применение модели для обработки данных
+        # result_df_path = model.model_work(df_for_model)
+        # df_result = pd.read_excel(result_df_path)
+
         result_df_path = "results/model_data.xlsx"
         df_result = pd.read_excel(result_df_path)
 
@@ -98,14 +100,16 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
 
     elif uploaded_files:
         # # Подготовка данных через PreprocessUseCases
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = preprocess.get_regulations_data()
+        # df_usecase = preprocess_use_case.get_summarized_data(path_list)
+        # df_regulations = preprocess_regulations.get_embeddings_df()
         # # Получение пар текстов для модели
         # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # Применение модели для обработки данных
-        # result_df_path = model.process(df_for_model)
-        result_df_path = "results/model_data.xlsx"
-        df_result = pd.read_excel(result_df_path)
+        # # Применение модели для обработки данных
+        # result_df_path = model.model_work(df_for_model)
+        # df_result = pd.read_excel(result_df_path)
+
+        # result_df_path = "results/model_data.xlsx"
+        # df_result = pd.read_excel(result_df_path)
 
         # Сохраняем в BytesIO
         bytesio_file = BytesIO()

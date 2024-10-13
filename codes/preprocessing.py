@@ -111,11 +111,13 @@ class PreprocessRegulations:
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text + "\n"
+
         # Split text into sections assuming sections start with '5.' followed by numbers
         sections = re.split(r"(\n5(?:\.\d+)+\.)", text)
         sections = sections[
             1:
         ]  # Remove the first split part which is before the first match
+
         df = {
             "punkt": [sections[i].strip() for i in range(0, len(sections), 2)],
             "text": [
@@ -125,11 +127,18 @@ class PreprocessRegulations:
             ],
         }
         dt = pd.DataFrame(df)
-        # Extract different levels of sections
-        dt["section1"] = dt["punkt"].str.extract(r"(5\.\d)")
-        dt["section2"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+)")
-        dt["section3"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+)")
-        dt["section4"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+\.\d+)")
+
+        # Ensure 'punkt' is a string before applying .str
+        dt["punkt"] = dt["punkt"].astype(str)
+
+        # Extract different levels of sections with expand=False
+        dt["section1"] = dt["punkt"].str.extract(r"(5\.\d)", expand=False)
+        dt["section2"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+)", expand=False)
+        dt["section3"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+)", expand=False)
+        dt["section4"] = dt["punkt"].str.extract(
+            r"(5\.\d+\.\d+\.\d+\.\d+)", expand=False
+        )
+
         dt = dt.fillna("-1")
 
         # Define helper functions to get main texts based on sections
@@ -138,7 +147,10 @@ class PreprocessRegulations:
             if len(parts) >= 2:
                 main_section = f"{parts[0]}.{parts[1]}"  # e.g., '5.1'
                 match = df.loc[df["section1"] == main_section, "text"]
-                return match.values[0] if not match.empty else None
+
+                # Return the first match, or None if no match is found
+                result = match.iloc[0] if not match.empty else None
+                return result
             return None
 
         def get_main_text1(row, df):
@@ -167,11 +179,11 @@ class PreprocessRegulations:
                 return match.values[0] if not match.empty else None
             return None
 
-        # Apply helper functions to extract hierarchical sections
         dt["Глава"] = dt.apply(lambda row: get_main_text(row, dt), axis=1)
         dt["Подглава"] = dt.apply(lambda row: get_main_text1(row, dt), axis=1)
         dt["Подпункт"] = dt.apply(lambda row: get_main_text2(row, dt), axis=1)
         dt["под-подподпункт"] = dt.apply(lambda row: get_main_text_5(row, dt), axis=1)
+
         cl = dt.drop(["section1", "section2", "section3", "section4"], axis=1)
         return cl
 
@@ -184,6 +196,7 @@ class PreprocessRegulations:
             for file in files:
                 if file.endswith(".pdf"):
                     file_path = os.path.join(root, file)
+                    print(file_path)
                     df = self.__read_pdf(file_path)
                     subdirectory_name = os.path.basename(root)
                     df.insert(0, "Subdirectory", subdirectory_name)
@@ -250,7 +263,7 @@ class GetPairs:
             # Use the [CLS] token embedding
             return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-    def get_two_texts(self, df_usecase, df_regulations, output_path):
+    def get_two_texts(self, df_usecase, df_regulations):
         """
         Finds the most similar regulation sections for each use case summary and exports the results to Excel.
         """
@@ -265,10 +278,6 @@ class GetPairs:
                 "usecase_text": target,
                 "certifiable_object": "",
                 "regulation_summary": "",
-                "similarity_Глава": 0.0,
-                "similarity_Подглава": 0.0,
-                "similarity_Подпункт": 0.0,
-                "similarity_под-подподпункт": 0.0,
             }
 
             for i in ["Глава", "Подглава", "Подпункт", "под-подподпункт"]:
@@ -281,19 +290,25 @@ class GetPairs:
                     max_similarity = df_regulations[similarity_col].max()
                     if (
                         pd.notnull(max_similarity)
-                        and max_similarity > best_match[f"similarity_{i}"]
+                        and max_similarity > best_match[similarity_col]
                     ):
-                        best_match[f"similarity_{i}"] = max_similarity
+                        # best_match[f"similarity_{i}"] = max_similarity
                         match_row = df_regulations.loc[
                             df_regulations[similarity_col] == max_similarity
                         ].iloc[0]
                         best_match["certifiable_object"] = match_row["Subdirectory"]
-                        best_match["regulation_summary"] += f"{i}: {match_row[i]} "
+
+                        # Объединяем текст, разделяя его точками
+                        if best_match["regulation_summary"]:
+                            best_match["regulation_summary"] += f". {match_row[i]}"
+                        else:
+                            best_match["regulation_summary"] = match_row[i]
 
             data.append(best_match)
 
         # Create DataFrame from the collected data
         result_df = pd.DataFrame(data)
         # Export the results to an Excel file
+        output_path = "results/model_data.xlsx"
         result_df.to_excel(output_path, index=False)
         return output_path
