@@ -1,7 +1,39 @@
 import os
 import pandas as pd
+import spacy
+import nltk
+import re
+from nltk.corpus import stopwords
 from docx import Document
 from transformers import T5ForConditionalGeneration, T5Tokenizer
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import BertModel, BertTokenizer
+import torch
+import os
+import pdfplumber
+import re
+
+
+class TextPreprocessor:
+    def __init__(self):
+        self.nlp = spacy.load("en_core_web_sm")
+        nltk.download("stopwords")
+        self.stop_words = set(stopwords.words("english"))
+
+    def tokenize(self, text):
+        cleaned_text = re.sub(r"[^\w\s]", "", text)
+        doc = self.nlp(cleaned_text)
+        tokens = [token.text for token in doc]
+        return tokens
+
+    def clean_text(self, text):
+        cleaned_tokens = self.tokenize(text)
+        filtered_tokens = [
+            word.lower()
+            for word in cleaned_tokens
+            if word.lower() not in self.stop_words
+        ]
+        return " ".join(filtered_tokens)
 
 
 class PreprocessUseCases:
@@ -38,42 +70,121 @@ class PreprocessUseCases:
 
         return summary
 
-    def __creating_dataframe(self, paths_list):
+    def get_summarized_data(self, paths_list):
         data = []
         for path in paths_list:
             if path.endswith(".docx"):
                 full_path = os.path.join("uploads", path)
                 # Read the text from the .docx file
                 text = self.__read_docx(full_path)
+                summary = self.__summarize_one_text(text)
                 # Append the path and text to the data list
-                data.append([full_path, text])
-        df = pd.DataFrame(data, columns=["path_of_file", "text"])
-        return df
-
-    def get_summurized_data(self, paths_list):
-        """
-        For each text in the 'text' column, generate a summary and return
-        a DataFrame with the original text and its summary.
-
-        :param paths_list: List of file paths to .docx files
-        :return: pandas DataFrame with 'path_of_file', 'text', and 'summary' columns
-        """
-        # Create the initial DataFrame
-        df = self.__creating_dataframe(paths_list)
-
-        # Initialize a list to hold summaries
-        summaries = []
-        # Iterate over each text and generate summary
-        for text in df["text"]:
-            summary = self.__summarize_one_text(text)
-            summaries.append(summary)
-
-        # Add the summaries to the DataFrame
-        df["summary"] = summaries
-
+                data.append([full_path, text, summary])
+        df = pd.DataFrame(data, columns=["path_of_file", "text", "summary"])
         return df
 
 
 class PreprocessRegulations:
-    def aa(self):
+    def __init__(self) -> None:
+        # нужно обработать все папки и все файлы внутри этой директории
+        self.path = "train_data/Регламенты сертификации"
+
+    def read_pdf(self, path):
+        # Открытие PDF файла
+        with pdfplumber.open(path) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text()
+        # Разделение текста по пунктам (предположим, что пункты начинаются с цифры и точки, например "1.")
+        sections = re.split(r"(\n5(?:\.\d+)+\.)", text)
+        sections = sections[1:]
+        df = {
+            "punkt": [
+                sections[i].replace("\n", "")
+                for i in range(len(sections))
+                if i % 2 == 0
+            ],
+            "text": [sections[i] for i in range(len(sections)) if i % 2 == 1],
+        }
+        dt = pd.DataFrame(df)
+        dt["section1"] = dt["punkt"].str.extract(r"(5\.\d)")
+        dt["section2"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+)")
+        dt["section3"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+)")
+        dt["section4"] = dt["punkt"].str.extract(r"(5\.\d+\.\d+\.\d+\.\d+)")
+        dt = dt.fillna("-1")
+
+        def get_main_text(row, df):
+            main_section = (
+                row["punkt"].split(".")[0] + "." + row["punkt"].split(".")[1]
+            )  # Берем первую часть '5.1' или '5.2'
+            match = df.loc[df["section1"] == main_section, "text"]
+            return match.values[0] if not match.empty else None
+
+        def get_main_text1(row, df):
+            # Формируем main_section для уровня '5.1.1'
+            parts = row["punkt"].split(".")
+            if len(parts) >= 3:
+                main_section = (
+                    f"{parts[0]}.{parts[1]}.{parts[2]}"  # Берем первые три части
+                )
+            else:
+                return None  # Возвращаем None, если меньше трех уровней
+
+            # Находим совпадение по section1 и возвращаем текст
+            match = df.loc[df["section2"] == main_section, "text"]
+            return match.values[0] if not match.empty else None
+
+        def get_main_text2(row, df):
+            # Формируем main_section для уровня '5.1.1.1'
+            parts = row["punkt"].split(".")
+            if len(parts) >= 4:
+                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}"  # Берем первые четыре части
+            else:
+                return None  # Возвращаем None, если меньше четырех уровней
+
+            # Находим совпадение по section2 и возвращаем текст
+            match = df.loc[df["section3"] == main_section, "text"]
+
+            return match.values[0] if not match.empty else None
+
+        def get_main_text_5(row, df):
+            # Формируем main_section для уровня '5.1.1.1.1'
+            parts = row["punkt"].split(".")
+            if len(parts) >= 5:
+                main_section = f"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}.{parts[4]}"  # Берем первые пять частей
+            else:
+                return None  # Возвращаем None, если меньше пяти уровней
+
+            # Находим совпадение по section и возвращаем текст
+            match = df.loc[df["section4"] == main_section, "text"]
+            return match.values[0] if not match.empty else None
+
+        # Применяем функцию к DataFrame
+        dt["Глава"] = dt.apply(lambda row: get_main_text(row, dt), axis=1)
+        dt["Подглава"] = dt.apply(lambda row: get_main_text1(row, dt), axis=1)
+        dt["Подпункт"] = dt.apply(lambda row: get_main_text2(row, dt), axis=1)
+        dt["под-подподпункт"] = dt.apply(lambda row: get_main_text_5(row, dt), axis=1)
+        cl = dt.drop(["section1", "section2", "section3", "section4"], axis=1)
+        return cl
+
+    def prepare_regulations_df(self):
+        all_data = []
+        # Проход по всем файлам в директории и подпапках
+        for root, dirs, files in os.walk(self.path):
+            for file in files:
+                if file.endswith(".pdf"):
+                    file_path = os.path.join(root, file)
+                    # Чтение PDF файлов и извлечение данных
+                    df = self.read_pdf(file_path)
+                    all_data.append(df)
+
+        # Объединение всех данных в один DataFrame
+        regulations_df = pd.concat(all_data, ignore_index=True)
+        return regulations_df
+
+    def get_embeddings_df(self):
         pass
+
+
+class GetPairs:
+    pass

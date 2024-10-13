@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 import uvicorn
 import logging
 import os
-from codes.preprocessing import PreprocessUseCase
+from codes.preprocessing import PreprocessUseCases
 
 # Import the model from the separate file
 from codes.models import MyModel
@@ -12,17 +12,20 @@ from codes.models import MyModel
 app = FastAPI()
 
 templates = Jinja2Templates(directory="codes/templates")
-preprocess = PreprocessUseCase()
+preprocess = PreprocessUseCases()
 model = MyModel()
 task_status = {}
+
 
 # Main page with form
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("interactive.html", {"request": request})
 
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
+
 
 def get_usecase_path_list(user_text=None, uploaded_files=None):
     """Convert input text to .txt or handle uploaded files, then preprocess."""
@@ -46,11 +49,14 @@ def get_usecase_path_list(user_text=None, uploaded_files=None):
     if path_list:
         return path_list
 
+
 # Background task to process the model
 def run_model_task(task_id, user_text=None, uploaded_files=None):
     global task_status
-    path_list = get_usecase_path_list(user_text=user_text, uploaded_files=uploaded_files)
-    
+    path_list = get_usecase_path_list(
+        user_text=user_text, uploaded_files=uploaded_files
+    )
+
     if user_text:
         # Если был введен текст, результат - текст модели
         file_contents = preprocess.get_summarized_data(path_list)
@@ -61,6 +67,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         file_contents = preprocess.get_summarized_data(path_list)
         result_file = model.process_files(file_contents)
         task_status[task_id] = {"type": "file", "result": result_file.getvalue()}
+
 
 # Process form data (file or text)
 @app.post("/submit")
@@ -84,12 +91,14 @@ async def submit_form(
         "waiting.html", {"request": request, "task_id": task_id}
     )
 
+
 # Endpoint to check task status
 @app.get("/check_status/{task_id}")
 async def check_status(task_id: str):
     if task_status.get(task_id):
         return {"status": "completed"}
     return {"status": "pending"}
+
 
 # Results page
 @app.get("/results/{task_id}", response_class=HTMLResponse)
@@ -99,7 +108,8 @@ async def results(request: Request, task_id: str):
         if task_result["type"] == "text":
             # Рендерим страницу с текстовым результатом
             return templates.TemplateResponse(
-                "result_text.html", {"request": request, "response_text": task_result["result"]}
+                "result_text.html",
+                {"request": request, "response_text": task_result["result"]},
             )
         elif task_result["type"] == "file":
             # Сохраняем Excel файл и рендерим страницу для его скачивания
@@ -115,6 +125,7 @@ async def results(request: Request, task_id: str):
             )
     return RedirectResponse("/")
 
+
 @app.get("/download/{filename}")
 async def download_file(filename: str):
     file_path = f"results/{filename}"
@@ -123,6 +134,7 @@ async def download_file(filename: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
 
 if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
