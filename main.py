@@ -8,17 +8,19 @@ import pandas as pd
 from io import BytesIO
 
 # подгружаем функции из других файлов
-# from codes.preprocessing import PreprocessUseCases
-# from codes.models import MyModel
+from codes.preprocessing import TextPreprocessor
+from codes.preprocessing import PreprocessUseCases
+from codes.preprocessing import GetPairs
+from codes.models import MyModel
 
 app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-# preprocess = PreprocessUseCases()
-# model = MyModel()
-# text_preprocessor = TextPreprocessor()
-# get_pairs = GetPairs()
+preprocess = PreprocessUseCases()
+model = MyModel()
+text_preprocessor = TextPreprocessor()
+get_pairs = GetPairs()
 task_status = {}  # Словарь для хранения статусов задач
 
 

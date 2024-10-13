@@ -229,14 +229,15 @@ class GetPairs:
         return cosine_similarity(embedding, target_embedding_2d).flatten()[0]
 
     def get_two_texts(df_usecase, df_regulations):
-        for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
-            similarity = f"similarity_{i}"
-            df[similarity] = df[f"emb_{i}"].apply(
-                lambda x: self.calculate_cosine_similarity(x, target_embedding)
-            )
+        
+            for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
+                similarity = f"similarity_{i}"
+                df[similarity] = df[f"emb_{i}"].apply(
+                    lambda x: self.calculate_cosine_similarity(x, target_embedding)
+                )
+                # Поиск максимального значения схожести
+                max_similarity = df[similarity].max()
+                # Обновление списка индексов для следующей итерации
+                df = df[df[similarity] == max_similarity]
+            
 
-            # Поиск максимального значения схожести
-            max_similarity = df[similarity].max()
-
-        # Обновление списка индексов для следующей итерации
-        df = df[df["similarity"] == max_similarity]
