@@ -1,1 +1,1 @@
-ffff
+Preconditions - driving below approximately 32 km/h or while driving in reverse Main Scenario - Car emit sound out_27, because EV operate quietly, and this sound helps to alert pedestrians of your oncoming vehicle.
