@@ -65,11 +65,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = preprocess_regulations.get_embeddings_df(text_preprocessor)
-        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # result_file_path = model.process_files(file_contents)
-        # Если был введен текст, результат - текст модели и эксель файл
+        # Здесь мы симулируем результат модели
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -92,16 +88,11 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
                 "certifiable_object": certifiable_object,
                 "regulation_summary": regulation_summary,
                 "model_response": model_response,
-                "download_file": bytesio_file,
+                "download_file": bytesio_file,  # Исправлено: сохраняем bytesio_file
             },
         }
 
     elif uploaded_files:
-        # # Если были загружены файлы, результат - Excel файл
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = preprocess_regulations.get_embeddings_df(text_preprocessor)
-        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # result_file_path = model.process_files(file_contents)
         result_file_path = "results/model_data.xlsx"
 
         # Читаем результат и сохраняем его в BytesIO
@@ -174,28 +165,22 @@ async def results(request: Request, task_id: str):
     return RedirectResponse("/")
 
 
-# Эндпоинт для скачивания файла
 @app.get("/download/{task_id}")
 async def download_file(task_id: str):
     task_result = task_status.get(task_id)
-    if task_result and task_result["type"] == "text" and task_result["result"]:
-        # Достаем объект BytesIO из результата и передаем его как поток для скачивания
-        bytesio_file = task_result["result"]["download_file"]
+    if task_result and task_result["result"]:
+        # Передаем корректный bytesio_file для скачивания
+        if isinstance(task_result["result"], dict) and "download_file" in task_result["result"]:
+            file = task_result["result"]["download_file"]
+        else:
+            file = task_result["result"]
+
         return StreamingResponse(
-            bytesio_file,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
-        )
-    elif task_result and task_result["type"] == "file" and task_result["result"]:
-        # Для загруженных файлов, которые тоже в BytesIO
-        bytesio_file = task_result["result"]
-        return StreamingResponse(
-            bytesio_file,
+            file,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
         )
     return {"error": "File not found"}
-
 
 
 if __name__ == "__main__":
