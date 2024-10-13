@@ -190,6 +190,8 @@ class PreprocessRegulations:
         return regulations_df
 
     def get_embeddings_df(self):
+        text_preprocessor = TextPreprocessor()
+
         def get_embedding(self, text):
             inputs = self.tokenizer(
                 text, return_tensors="pt", padding=True, truncation=True, max_length=512
@@ -199,8 +201,35 @@ class PreprocessRegulations:
                 # Используем эмбеддинг токена [CLS], который представляет всё предложение
                 return outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-        df = self.__prepare_regulations_df(self.path)
-        
+        dk = self.__prepare_regulations_df(self.path)
+
+        id = dk.index.to_list()
+
+        for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
+
+            df = dk.loc[id]  # Используйте loc для работы с индексами
+
+            # Применение функций для вычисления эмбеддингов и схожести
+            df["emb"] = (
+                df[i]
+                .apply(
+                    lambda x: text_preprocessor.clean_text(
+                        x, text_preprocessor.stop_words
+                    )
+                )
+                .apply(lambda x: get_embedding(x.lower()))
+            )
+
+            df["similarity"] = df["emb"].apply(
+                lambda x: self.calculate_cosine_similarity(x, target_embedding)
+            )
+
+            # Отображение DataFrame
+            # Поиск максимального значения схожести
+            max_similarity = df["similarity"].max()
+
+            # Обновление списка индексов для следующей итерации
+            id = df[df["similarity"] == max_similarity].index.to_list()
 
         return df
 
