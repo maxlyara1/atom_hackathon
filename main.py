@@ -9,13 +9,15 @@ from io import BytesIO
 
 # подгружаем функции из других файлов
 from codes.preprocessing import PreprocessUseCases
+from codes.preprocessing import PreprocessRegulations
 from codes.models import MyModel
 
 app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-preprocess = PreprocessUseCases()
+preprocess_usecase = PreprocessUseCases()
+preprocess_regulations = PreprocessRegulations()
 model = MyModel()
 task_status = {}  # Словарь для хранения статусов задач
 
@@ -63,12 +65,9 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # Если был введен текст, результат - текст модели
-<<<<<<< Updated upstream
-=======
-        # file_contents = preprocess.get_summarized_data(path_list)
+        # df_usecase = preprocess.get_summarized_data(path_list)
         # result_file_path = model.process_files(file_contents)
->>>>>>> Stashed changes
+        # Если был введен текст, результат - текст модели и эксель файл
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -96,9 +95,11 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         }
 
     elif uploaded_files:
-        # Если были загружены файлы, результат - Excel файл
-        file_contents = preprocess.get_summarized_data(path_list)
-        result_file_path = model.process_files(file_contents)
+        # # Если были загружены файлы, результат - Excel файл
+        # df_usecase = preprocess.get_summarized_data(path_list)
+        # df_regulations = get_embeddings_df()
+        # df_for_model =
+        # result_file_path = model.process_files(file_contents)
 
         # Читаем результат и сохраняем его в BytesIO
         df = pd.read_excel(result_file_path)
