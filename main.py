@@ -64,11 +64,8 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
 
     if user_text:
         # Если был введен текст, результат - текст модели
-<<<<<<< Updated upstream
-=======
         # file_contents = preprocess.get_summarized_data(path_list)
         # result_file_path = model.process_files(file_contents)
->>>>>>> Stashed changes
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -188,4 +185,4 @@ if __name__ == "__main__":
     os.makedirs(
         "results", exist_ok=True
     )  # Создаем директорию для результатов, если она не существует
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)  # Запуск приложения FastAPI
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # Запуск приложения FastAPI
