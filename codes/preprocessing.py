@@ -189,9 +189,7 @@ class PreprocessRegulations:
         regulations_df = pd.concat(all_data, ignore_index=True)
         return regulations_df
 
-    def get_embeddings_df(self):
-        text_preprocessor = TextPreprocessor()
-
+    def get_embeddings_df(self, text_preprocessor):
         def get_embedding(self, text):
             inputs = self.tokenizer(
                 text, return_tensors="pt", padding=True, truncation=True, max_length=512
@@ -210,7 +208,7 @@ class PreprocessRegulations:
             df = dk.loc[id]  # Используйте loc для работы с индексами
 
             # Применение функций для вычисления эмбеддингов и схожести
-            df["emb"] = (
+            df[f"emb_{i}"] = (
                 df[i]
                 .apply(
                     lambda x: text_preprocessor.clean_text(
@@ -220,19 +218,20 @@ class PreprocessRegulations:
                 .apply(lambda x: get_embedding(x.lower()))
             )
 
-            df["similarity"] = df["emb"].apply(
-                lambda x: self.calculate_cosine_similarity(x, target_embedding)
-            )
-
-            # Отображение DataFrame
-            # Поиск максимального значения схожести
-            max_similarity = df["similarity"].max()
-
-            # Обновление списка индексов для следующей итерации
-            id = df[df["similarity"] == max_similarity].index.to_list()
-
         return df
 
 
 class GetPairs:
+
+    for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
+        df[f"similarity_{i}"] = df["emb"].apply(
+            lambda x: self.calculate_cosine_similarity(x, target_embedding)
+        )
+
+        # Отображение DataFrame
+        # Поиск максимального значения схожести
+        max_similarity = df["similarity"].max()
+
+        # Обновление списка индексов для следующей итерации
+        id = df[df["similarity"] == max_similarity].index.to_list()
     pass

@@ -8,6 +8,7 @@ import pandas as pd
 from io import BytesIO
 
 # подгружаем функции из других файлов
+from codes.preprocessing import TextPreprocessor
 from codes.preprocessing import PreprocessUseCases
 from codes.preprocessing import PreprocessRegulations
 from codes.models import MyModel
@@ -19,6 +20,7 @@ templates = Jinja2Templates(directory="codes/templates")
 preprocess_usecase = PreprocessUseCases()
 preprocess_regulations = PreprocessRegulations()
 model = MyModel()
+text_preprocessor = TextPreprocessor()
 task_status = {}  # Словарь для хранения статусов задач
 
 
@@ -97,7 +99,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     elif uploaded_files:
         # # Если были загружены файлы, результат - Excel файл
         # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = get_embeddings_df()
+        # df_regulations = get_embeddings_df(text_preprocessor)
         # df_for_model =
         # result_file_path = model.process_files(file_contents)
         result_file_path = "results/model_data.xlsx"
