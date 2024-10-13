@@ -69,13 +69,13 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # # Подготовка данных через PreprocessUseCases
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = preprocess.get_regulations_data()
-        # # Получение пар текстов для модели
-        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # Подготовка данных через PreprocessUseCases
+        df_usecase = preprocess.get_summarized_data(path_list)
+        df_regulations = preprocess.get_regulations_data()
+        # Получение пар текстов для модели
+        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
         # Применение модели для обработки данных
-        # result_df_path = model.process(df_for_model)
+        result_df_path = model.process(df_for_model)
         result_df_path = "results/model_data.xlsx"
         df_result = pd.read_excel(result_df_path)
 
