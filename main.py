@@ -17,6 +17,8 @@ app = FastAPI()
 templates = Jinja2Templates(directory="codes/templates")
 preprocess = PreprocessUseCases()
 model = MyModel()
+text_preprocessor = TextPreprocessor()
+get_pairs = GetPairs()
 task_status = {}  # Словарь для хранения статусов задач
 
 
@@ -63,7 +65,11 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # Если был введен текст, результат - текст модели
+        # df_usecase = preprocess.get_summarized_data(path_list)
+        # df_regulations = preprocess_regulations.get_embeddings_df(text_preprocessor)
+        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # result_file_path = model.process_files(file_contents)
+        # Если был введен текст, результат - текст модели и эксель файл
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -91,9 +97,12 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         }
 
     elif uploaded_files:
-        # Если были загружены файлы, результат - Excel файл
-        file_contents = preprocess.get_summarized_data(path_list)
-        result_file_path = model.process_files(file_contents)
+        # # Если были загружены файлы, результат - Excel файл
+        # df_usecase = preprocess.get_summarized_data(path_list)
+        # df_regulations = preprocess_regulations.get_embeddings_df(text_preprocessor)
+        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # result_file_path = model.process_files(file_contents)
+        result_file_path = "results/model_data.xlsx"
 
         # Читаем результат и сохраняем его в BytesIO
         df = pd.read_excel(result_file_path)
@@ -174,9 +183,7 @@ async def download_file(task_id: str):
         return StreamingResponse(
             task_result["result"],
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f"attachment; filename={task_id}.xlsx"
-            },
+            headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
         )
     return {"error": "File not found"}
 
