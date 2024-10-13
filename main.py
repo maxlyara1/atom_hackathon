@@ -70,16 +70,16 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
 
     if user_text:
         # Подготовка данных через PreprocessUseCases
-        # df_usecase = preprocess_use_case.get_summarized_data(path_list)
-        # df_regulations = preprocess_regulations.get_embeddings_df()
-        # # Получение пар текстов для модели
-        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # # Применение модели для обработки данных
-        # result_df_path = model.model_work(df_for_model)
-        # df_result = pd.read_excel(result_df_path)
-
-        result_df_path = "results/model_data.xlsx"
+        df_usecase = preprocess_use_case.get_summarized_data(path_list)
+        df_regulations = preprocess_regulations.get_embeddings_df()
+        # Получение пар текстов для модели
+        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # Применение модели для обработки данных
+        result_df_path = model.model_work(df_for_model)
         df_result = pd.read_excel(result_df_path)
+
+        # result_df_path = "results/model_data.xlsx"
+        # df_result = pd.read_excel(result_df_path)
 
         # Сохраняем результат в BytesIO для скачивания
         bytesio_file = BytesIO()
@@ -99,14 +99,14 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         }
 
     elif uploaded_files:
-        # # Подготовка данных через PreprocessUseCases
-        # df_usecase = preprocess_use_case.get_summarized_data(path_list)
-        # df_regulations = preprocess_regulations.get_embeddings_df()
-        # # Получение пар текстов для модели
-        # df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
-        # # Применение модели для обработки данных
-        # result_df_path = model.model_work(df_for_model)
-        # df_result = pd.read_excel(result_df_path)
+        # Подготовка данных через PreprocessUseCases
+        df_usecase = preprocess_use_case.get_summarized_data(path_list)
+        df_regulations = preprocess_regulations.get_embeddings_df()
+        # Получение пар текстов для модели
+        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        # Применение модели для обработки данных
+        result_df_path = model.model_work(df_for_model)
+        df_result = pd.read_excel(result_df_path)
 
         # result_df_path = "results/model_data.xlsx"
         # df_result = pd.read_excel(result_df_path)
