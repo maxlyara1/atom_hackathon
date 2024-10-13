@@ -89,7 +89,7 @@ class PreprocessRegulations:
         # нужно обработать все папки и все файлы внутри этой директории
         self.path = "train_data/Регламенты сертификации"
 
-    def read_pdf(self, path):
+    def __read_pdf(self, path):
         # Открытие PDF файла
         with pdfplumber.open(path) as pdf:
             text = ""
@@ -167,15 +167,19 @@ class PreprocessRegulations:
         cl = dt.drop(["section1", "section2", "section3", "section4"], axis=1)
         return cl
 
-    def prepare_regulations_df(self):
+    def __prepare_regulations_df(self, path):
         all_data = []
         # Проход по всем файлам в директории и подпапках
-        for root, dirs, files in os.walk(self.path):
+        for root, dirs, files in os.walk(path):
             for file in files:
                 if file.endswith(".pdf"):
                     file_path = os.path.join(root, file)
                     # Чтение PDF файлов и извлечение данных
-                    df = self.read_pdf(file_path)
+                    df = self.__read_pdf(file_path)
+                    # Получаем имя дочерней папки
+                    subdirectory_name = os.path.basename(root)
+                    # Добавляем новую колонку с названием папки
+                    df.insert(0, 'Subdirectory', subdirectory_name)
                     all_data.append(df)
 
         # Объединение всех данных в один DataFrame
@@ -183,7 +187,10 @@ class PreprocessRegulations:
         return regulations_df
 
     def get_embeddings_df(self):
-        pass
+        df = self.__prepare_regulations_df(self.path)
+
+
+        return df
 
 
 class GetPairs:
