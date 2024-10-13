@@ -40,8 +40,8 @@
 
 2. **Активируйте виртуальное окружение:**   
    ```bash
-    venv\Scripts\activate  - для Windows
-    source venv/bin/activate  - для macOS и Linux
+    venv\Scripts\activate  # для Windows
+    source venv/bin/activate  # для macOS и Linux
 
 3. **Установите необходимые библиотеки:**
    ```bash
