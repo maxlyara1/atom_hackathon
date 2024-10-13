@@ -210,7 +210,7 @@ class PreprocessRegulations:
             df = dk.loc[id]  # Используйте loc для работы с индексами
 
             # Применение функций для вычисления эмбеддингов и схожести
-            df["emb"] = (
+            df[f"emb{i}"] = (
                 df[i]
                 .apply(
                     lambda x: text_preprocessor.clean_text(
@@ -220,36 +220,23 @@ class PreprocessRegulations:
                 .apply(lambda x: get_embedding(x.lower()))
             )
 
-            df["similarity"] = df["emb"].apply(
-                lambda x: self.calculate_cosine_similarity(x, target_embedding)
-            )
-
-            # Отображение DataFrame
-            # Поиск максимального значения схожести
-            max_similarity = df["similarity"].max()
-
-            # Обновление списка индексов для следующей итерации
-            id = df[df["similarity"] == max_similarity].index.to_list()
-
         return df
 
 
 class GetPairs:
 
-    def calculate_cosine_similarity(embedding,target_embedding_2d):
+    def calculate_cosine_similarity(embedding, target_embedding_2d):
         return cosine_similarity(embedding, target_embedding_2d).flatten()[0]
-    
 
-    def get_two_texts(df_usecase, df_regulations)
+    def get_two_texts(df_usecase, df_regulations):
         for i in ["Глава", "Подглава", "подпункт", "под-подпункт"]:
-            df[f"similarity_{i}"] = df["emb"].apply(
+            similarity = f"similarity_{i}"
+            df[similarity] = df[f"emb_{i}"].apply(
                 lambda x: self.calculate_cosine_similarity(x, target_embedding)
             )
 
-            # Отображение DataFrame
             # Поиск максимального значения схожести
-            max_similarity = df["similarity"].max()
+            max_similarity = df[similarity].max()
 
-            # Обновление списка индексов для следующей итерации
-            id = df[df["similarity"] == max_similarity].index.to_list()
-    pass
+        # Обновление списка индексов для следующей итерации
+        df = df[df["similarity"] == max_similarity]

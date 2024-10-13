@@ -8,17 +8,17 @@ import pandas as pd
 from io import BytesIO
 
 # подгружаем функции из других файлов
-from codes.preprocessing import PreprocessUseCases
-from codes.models import MyModel
+# from codes.preprocessing import PreprocessUseCases
+# from codes.models import MyModel
 
 app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-preprocess = PreprocessUseCases()
-model = MyModel()
-text_preprocessor = TextPreprocessor()
-get_pairs = GetPairs()
+# preprocess = PreprocessUseCases()
+# model = MyModel()
+# text_preprocessor = TextPreprocessor()
+# get_pairs = GetPairs()
 task_status = {}  # Словарь для хранения статусов задач
 
 
@@ -170,7 +170,10 @@ async def download_file(task_id: str):
     task_result = task_status.get(task_id)
     if task_result and task_result["result"]:
         # Передаем корректный bytesio_file для скачивания
-        if isinstance(task_result["result"], dict) and "download_file" in task_result["result"]:
+        if (
+            isinstance(task_result["result"], dict)
+            and "download_file" in task_result["result"]
+        ):
             file = task_result["result"]["download_file"]
         else:
             file = task_result["result"]
