@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Form, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
 import logging
@@ -7,22 +7,24 @@ import os
 import pandas as pd
 from io import BytesIO
 
-# подгружаем функции из других файлов
-# from codes.preprocessing import PreprocessUseCases
-# from codes.models import MyModel
+# Подгружаем функции из других файлов
+from codes.preprocessing import PreprocessUseCases
+from codes.models import MyModel
+from codes.text_preprocessor import TextPreprocessor
+from codes.get_pairs import GetPairs
 
 app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-# preprocess = PreprocessUseCases()
-# model = MyModel()
-# text_preprocessor = TextPreprocessor()
-# get_pairs = GetPairs()
+preprocess = PreprocessUseCases()
+model = MyModel()
+text_preprocessor = TextPreprocessor()
+get_pairs = GetPairs()
 task_status = {}  # Словарь для хранения статусов задач
 
 
-# главная страница
+# Главная страница
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("interactive.html", {"request": request})
@@ -52,53 +54,56 @@ def get_usecase_path_list(user_text=None, uploaded_files=None):
                 f.write(file.file.read())
             path_list.append(file_location)
 
-    # Возвращаем список файлов для обработки
-    if path_list:
-        return path_list
+    return path_list
 
 
 # Фоновая задача для запуска модели
 def run_model_task(task_id, user_text=None, uploaded_files=None):
     global task_status
-    path_list = get_usecase_path_list(
-        user_text=user_text, uploaded_files=uploaded_files
-    )
+    path_list = get_usecase_path_list(user_text=user_text, uploaded_files=uploaded_files)
 
     if user_text:
-        # Здесь мы симулируем результат модели
-        result_file_path = "results/model_data.xlsx"
+        # Подготовка данных через PreprocessUseCases
+        df_usecase = preprocess.get_summarized_data(path_list)
+        df_regulations = preprocess.get_regulations_data()
 
-        # Читаем таблицу, извлекаем нужные данные
-        df = pd.read_excel(result_file_path)
-        usecase_text = df.iloc[0, 1]  # Текст юзкейса (колонка 1)
-        certifiable_object = df.iloc[0, 2]  # Сертифицируемый объект (колонка 2)
-        regulation_summary = df.iloc[0, 3]  # Выжимка из регламента (колонка 3)
-        model_response = df.iloc[0, 4]  # Ответ модели (колонка 4)
+        # Получение пар текстов для модели
+        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
 
-        # Сохраняем данные в BytesIO
+        # Применение модели для обработки данных
+        df_result = model.process(df_for_model)
+
+        # Сохраняем результат в BytesIO для скачивания
         bytesio_file = BytesIO()
-        df.to_excel(bytesio_file, index=False)
+        df_result.to_excel(bytesio_file, index=False)
         bytesio_file.seek(0)
 
-        # Сохраняем данные в словарь для последующей выдачи
+        # Сохраняем результат в словарь
         task_status[task_id] = {
             "type": "text",
             "result": {
-                "usecase_text": usecase_text,
-                "certifiable_object": certifiable_object,
-                "regulation_summary": regulation_summary,
-                "model_response": model_response,
-                "download_file": bytesio_file,  # Исправлено: сохраняем bytesio_file
+                "usecase_text": df_result.iloc[0, 0],  # Текст юзкейса
+                "certifiable_object": df_result.iloc[0, 1],  # Сертифицируемый объект
+                "regulation_summary": df_result.iloc[0, 2],  # Выжимка из регламента
+                "model_response": df_result.iloc[0, 3],  # Ответ модели
+                "download_file": bytesio_file,
             },
         }
 
     elif uploaded_files:
-        result_file_path = "results/model_data.xlsx"
+        # Обрабатываем загруженные файлы аналогично
+        df_usecase = preprocess.get_summarized_data(path_list)
+        df_regulations = preprocess.get_regulations_data()
 
-        # Читаем результат и сохраняем его в BytesIO
-        df = pd.read_excel(result_file_path)
+        # Получаем данные для модели
+        df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+
+        # Применяем модель
+        df_result = model.process(df_for_model)
+
+        # Сохраняем в BytesIO
         bytesio_file = BytesIO()
-        df.to_excel(bytesio_file, index=False)
+        df_result.to_excel(bytesio_file, index=False)
         bytesio_file.seek(0)
 
         task_status[task_id] = {"type": "file", "result": bytesio_file}
@@ -165,21 +170,14 @@ async def results(request: Request, task_id: str):
     return RedirectResponse("/")
 
 
+# Эндпоинт для скачивания файла
 @app.get("/download/{task_id}")
 async def download_file(task_id: str):
     task_result = task_status.get(task_id)
     if task_result and task_result["result"]:
-        # Передаем корректный bytesio_file для скачивания
-        if (
-            isinstance(task_result["result"], dict)
-            and "download_file" in task_result["result"]
-        ):
-            file = task_result["result"]["download_file"]
-        else:
-            file = task_result["result"]
-
+        # Передаем BytesIO как поток для скачивания
         return StreamingResponse(
-            file,
+            task_result["result"]["download_file"],
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={task_id}.xlsx"},
         )
