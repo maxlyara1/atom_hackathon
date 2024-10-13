@@ -5,6 +5,7 @@ import uvicorn
 import logging
 import os
 import pandas as pd
+from io import BytesIO
 
 # подгружаем функции из других файлов
 from codes.preprocessing import PreprocessUseCases
@@ -63,8 +64,6 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
 
     if user_text:
         # Если был введен текст, результат - текст модели
-        # file_contents = preprocess.get_summarized_data(path_list)
-        # result_file_path = model.process_text(file_contents)
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -74,7 +73,11 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         regulation_summary = df.iloc[0, 3]  # Выжимка из регламента (колонка 3)
         model_response = df.iloc[0, 4]  # Ответ модели (колонка 4)
 
-        bytesio_file = ...
+        # Сохраняем данные в BytesIO
+        bytesio_file = BytesIO()
+        df.to_excel(bytesio_file, index=False)
+        bytesio_file.seek(0)
+
         # Сохраняем данные в словарь для последующей выдачи
         task_status[task_id] = {
             "type": "text",
@@ -91,8 +94,13 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         # Если были загружены файлы, результат - Excel файл
         file_contents = preprocess.get_summarized_data(path_list)
         result_file_path = model.process_files(file_contents)
+
+        # Читаем результат и сохраняем его в BytesIO
         df = pd.read_excel(result_file_path)
-        bytesio_file = ...
+        bytesio_file = BytesIO()
+        df.to_excel(bytesio_file, index=False)
+        bytesio_file.seek(0)
+
         task_status[task_id] = {"type": "file", "result": bytesio_file.getvalue()}
 
 
