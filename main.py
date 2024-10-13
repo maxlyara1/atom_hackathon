@@ -4,19 +4,21 @@ from fastapi.templating import Jinja2Templates
 import uvicorn
 import logging
 import os
-from codes.preprocessing import PreprocessUseCase
+import pandas as pd
 
-# Import the model from the separate file
+# подгружаем функции из других файлов
+from codes.preprocessing import PreprocessUseCase
 from codes.models import MyModel
 
 app = FastAPI()
 
+# Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
 preprocess = PreprocessUseCase()
 model = MyModel()
-task_status = {}
+task_status = {}  # Словарь для хранения статусов задач
 
-# Main page with form
+# главная страница
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("interactive.html", {"request": request})
@@ -24,12 +26,13 @@ async def index(request: Request):
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
+# Функция для обработки текста пользователя или загруженных файлов
 def get_usecase_path_list(user_text=None, uploaded_files=None):
-    """Convert input text to .txt or handle uploaded files, then preprocess."""
+    """Конвертирует введенный текст в .txt или обрабатывает загруженные файлы."""
     path_list = []
 
     if user_text:
-        # Если введен текст, создаем .txt файл
+        # Если введен текст, создаем .txt и добавляем в список
         txt_file_path = "uploads/input_text.txt"
         with open(txt_file_path, "w") as txt_file:
             txt_file.write(user_text)
@@ -42,11 +45,12 @@ def get_usecase_path_list(user_text=None, uploaded_files=None):
             with open(file_location, "wb") as f:
                 f.write(file.file.read())
             path_list.append(file_location)
-    # Если есть файлы для обработки
+    
+    # Возвращаем список файлов для обработки
     if path_list:
         return path_list
 
-# Background task to process the model
+# Фоновая задача для запуска модели
 def run_model_task(task_id, user_text=None, uploaded_files=None):
     global task_status
     path_list = get_usecase_path_list(user_text=user_text, uploaded_files=uploaded_files)
@@ -54,15 +58,34 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     if user_text:
         # Если был введен текст, результат - текст модели
         file_contents = preprocess.get_summarized_data(path_list)
-        response_text = model.process_text(file_contents)
-        task_status[task_id] = {"type": "text", "result": response_text}
+        result_file = model.process_text(file_contents)
+
+        # Читаем таблицу, извлекаем нужные данные
+        df = pd.read_excel(result_file)
+        usecase_text = df.iloc[0, 1]  # Текст юзкейса (колонка 1)
+        certifiable_object = df.iloc[0, 2]  # Сертифицируемый объект (колонка 2)
+        regulation_summary = df.iloc[0, 3]  # Выжимка из регламента (колонка 3)
+        model_response = df.iloc[0, 4]  # Ответ модели (колонка 4)
+
+        # Сохраняем данные в словарь для последующей выдачи
+        task_status[task_id] = {
+            "type": "text",
+            "result": {
+                "usecase_text": usecase_text,
+                "certifiable_object": certifiable_object,
+                "regulation_summary": regulation_summary,
+                "model_response": model_response,
+                "download_file": result_file.getvalue(),
+            }
+        }
+
     elif uploaded_files:
         # Если были загружены файлы, результат - Excel файл
         file_contents = preprocess.get_summarized_data(path_list)
         result_file = model.process_files(file_contents)
         task_status[task_id] = {"type": "file", "result": result_file.getvalue()}
 
-# Process form data (file or text)
+# Обработка данных формы (файлы или текст)
 @app.post("/submit")
 async def submit_form(
     request: Request,
@@ -70,36 +93,44 @@ async def submit_form(
     user_text: str = Form(None),
     files: list[UploadFile] = File(None),
 ):
-    logging.info(f"Received POST request with user_text: '{user_text}', files: {files}")
+    logging.info(f"Получен POST-запрос с user_text: '{user_text}', files: {files}")
 
-    # Assign a task ID to track the status
+    # Присваиваем ID задачи для отслеживания статуса
     task_id = "task_1"
     task_status[task_id] = None
 
-    # Start background task to run the model
+    # Запускаем фоновую задачу для запуска модели
     background_tasks.add_task(run_model_task, task_id, user_text, files)
 
-    # Render the waiting page with inactive button
+    # Отображаем страницу ожидания с неактивной кнопкой
     return templates.TemplateResponse(
         "waiting.html", {"request": request, "task_id": task_id}
     )
 
-# Endpoint to check task status
+# Эндпоинт для проверки статуса задачи
 @app.get("/check_status/{task_id}")
 async def check_status(task_id: str):
     if task_status.get(task_id):
-        return {"status": "completed"}
-    return {"status": "pending"}
+        return {"status": "completed"}  # Статус "выполнено"
+    return {"status": "pending"}  # Статус "в ожидании"
 
-# Results page
+# Страница с результатами
 @app.get("/results/{task_id}", response_class=HTMLResponse)
 async def results(request: Request, task_id: str):
     task_result = task_status.get(task_id)
     if task_result:
         if task_result["type"] == "text":
-            # Рендерим страницу с текстовым результатом
+            # Рендерим страницу с текстовым результатом и кнопкой скачивания
             return templates.TemplateResponse(
-                "result_text.html", {"request": request, "response_text": task_result["result"]}
+                "result_text.html", 
+                {
+                    "request": request, 
+                    "usecase_text": task_result["result"]["usecase_text"],
+                    "certifiable_object": task_result["result"]["certifiable_object"],
+                    "regulation_summary": task_result["result"]["regulation_summary"],
+                    "model_response": task_result["result"]["model_response"],
+                    "download_link": f"/download/temp_result.xlsx"
+                }
             )
         elif task_result["type"] == "file":
             # Сохраняем Excel файл и рендерим страницу для его скачивания
@@ -115,6 +146,7 @@ async def results(request: Request, task_id: str):
             )
     return RedirectResponse("/")
 
+# Эндпоинт для скачивания файла
 @app.get("/download/{filename}")
 async def download_file(filename: str):
     file_path = f"results/{filename}"
@@ -125,5 +157,5 @@ async def download_file(filename: str):
     )
 
 if __name__ == "__main__":
-    os.makedirs("results", exist_ok=True)
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    os.makedirs("results", exist_ok=True)  # Создаем директорию для результатов, если она не существует
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)  # Запуск приложения FastAPI

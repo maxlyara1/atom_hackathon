@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Результат анализа</title>
+    <title>Результат модели</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4;
-            color: #333;
+            background-color: #f4f4f4; /* Цвет фона по умолчанию (светлая тема) */
+            color: #333; /* Цвет текста по умолчанию (светлая тема) */
             margin: 0;
             padding: 0;
             display: flex;
@@ -18,19 +18,30 @@
             height: 100vh;
             flex-direction: column;
             text-align: center;
+            transition: background-color 0.3s, color 0.3s; /* Плавный переход */
         }
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
-            color: #333;
-            max-width: 600px;
+            text-align: center; /* Центрирование текста */
+            max-width: 600px; /* Ограничение ширины заголовка */
         }
-        p {
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-            max-width: 800px;
-            word-wrap: break-word;
+
+        table {
+            width: 80%;
+            margin: 20px 0;
+            border-collapse: collapse;
+            border: 1px solid #ccc;
+            font-size: 1rem;
         }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
         button {
             padding: 10px 20px;
             font-size: 1rem;
@@ -41,63 +52,55 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
+
         button:hover {
             background-color: #45a049;
         }
-        .support-button {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background-color: #007BFF;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .response-box {
-            border: 2px solid #333;
-            padding: 20px;
-            border-radius: 10px;
-            background-color: white;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 800px;
-            text-align: center;
-        }
+
+        /* Стили для темной темы */
         @media (prefers-color-scheme: dark) {
             body {
                 background-color: #333;
                 color: #f4f4f4;
             }
-            h1, p {
-                color: #f4f4f4;
+
+            table, th, td {
+                border-color: #777;
             }
+
             button {
                 background-color: #4CAF50;
-            }
-            button:hover {
-                background-color: #45a049;
-            }
-            .response-box {
-                background-color: #444;
-                border-color: #f4f4f4;
-            }
-            .support-button {
-                background-color: #007BFF;
             }
         }
     </style>
 </head>
 <body>
- <h1> Результат работы модели🤗</h1>
- <h2><br /><br /></h2>
+    <h1>Извлеченные данные</h1>
 
-    <div class="response-box">
-        <p>{{ response_text }}</p>
-    </div>
- <h2><br /><br /></h2>
+    <!-- Таблица с извлеченными данными -->
+    <table>
+        <tr>
+            <th>Текст юзкейса</th>
+            <td>{{ usecase_text }}</td>
+        </tr>
+        <tr>
+            <th>Сертифицируемый объект</th>
+            <td>{{ certifiable_object }}</td>
+        </tr>
+        <tr>
+            <th>Выжимка из регламента</th>
+            <td>{{ regulation_summary }}</td>
+        </tr>
+        <tr>
+            <th>Ответ модели</th>
+            <td>{{ model_response }}</td>
+        </tr>
+    </table>
 
-    <a href="/"><button>Вернуться на главную</button></a>
+    <!-- Кнопка для скачивания Excel файла -->
+    <button onclick="window.location.href='{{ download_link }}'">Скачать Excel файл</button>
 </body>
 </html>
+
+
 
