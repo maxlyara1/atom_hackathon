@@ -8,8 +8,8 @@
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4; /* Цвет фона по умолчанию (светлая тема) */
-            color: #333; /* Цвет текста по умолчанию (светлая тема) */
+            background-color: #f4f4f4;
+            color: #333;
             margin: 0;
             padding: 0;
             display: flex;
@@ -18,14 +18,14 @@
             height: 100vh;
             flex-direction: column;
             text-align: center;
-            transition: background-color 0.3s, color 0.3s; /* Плавный переход */
+            transition: background-color 0.3s, color 0.3s;
         }
 
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
-            text-align: center; /* Центрирование текста */
-            max-width: 600px; /* Ограничение ширины заголовка */
+            text-align: center;
+            max-width: 600px;
         }
 
         table {
@@ -98,10 +98,13 @@
         </tr>
     </table>
 
-    <!-- Кнопки для скачивания и возврата назад -->
+    <!-- Кнопка для скачивания Excel файла -->
     <button onclick="window.location.href='{{ download_link }}'">Скачать Excel файл</button>
-    <button onclick="window.history.back()">Назад</button>
+
+    <!-- Кнопка возврата на главную страницу -->
+    <button onclick="window.location.href='/'">Вернуться на главную страницу</button>
 </body>
 </html>
+
 
 

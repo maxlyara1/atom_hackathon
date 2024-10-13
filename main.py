@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Form, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
 import logging
@@ -9,15 +9,13 @@ from io import BytesIO
 
 # подгружаем функции из других файлов
 from codes.preprocessing import PreprocessUseCases
-from codes.preprocessing import PreprocessRegulations
 from codes.models import MyModel
 
 app = FastAPI()
 
 # Подключаем шаблоны HTML из директории
 templates = Jinja2Templates(directory="codes/templates")
-preprocess_usecase = PreprocessUseCases()
-preprocess_regulations = PreprocessRegulations()
+preprocess = PreprocessUseCases()
 model = MyModel()
 task_status = {}  # Словарь для хранения статусов задач
 
@@ -65,9 +63,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # result_file_path = model.process_files(file_contents)
-        # Если был введен текст, результат - текст модели и эксель файл
+        # Если был введен текст, результат - текст модели
         result_file_path = "results/model_data.xlsx"
 
         # Читаем таблицу, извлекаем нужные данные
@@ -90,17 +86,14 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
                 "certifiable_object": certifiable_object,
                 "regulation_summary": regulation_summary,
                 "model_response": model_response,
-                "download_file": bytesio_file.getvalue(),
+                "download_file": bytesio_file,
             },
         }
 
     elif uploaded_files:
-        # # Если были загружены файлы, результат - Excel файл
-        # df_usecase = preprocess.get_summarized_data(path_list)
-        # df_regulations = get_embeddings_df()
-        # df_for_model =
-        # result_file_path = model.process_files(file_contents)
-        result_file_path = "results/model_data.xlsx"
+        # Если были загружены файлы, результат - Excel файл
+        file_contents = preprocess.get_summarized_data(path_list)
+        result_file_path = model.process_files(file_contents)
 
         # Читаем результат и сохраняем его в BytesIO
         df = pd.read_excel(result_file_path)
@@ -108,7 +101,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         df.to_excel(bytesio_file, index=False)
         bytesio_file.seek(0)
 
-        task_status[task_id] = {"type": "file", "result": bytesio_file.getvalue()}
+        task_status[task_id] = {"type": "file", "result": bytesio_file}
 
 
 # Обработка данных формы (файлы или текст)
@@ -157,33 +150,35 @@ async def results(request: Request, task_id: str):
                     "certifiable_object": task_result["result"]["certifiable_object"],
                     "regulation_summary": task_result["result"]["regulation_summary"],
                     "model_response": task_result["result"]["model_response"],
-                    "download_link": f"/download/temp_result.xlsx",
+                    "download_link": f"/download/{task_id}",  # Используем ID задачи
                 },
             )
         elif task_result["type"] == "file":
-            # Сохраняем Excel файл и рендерим страницу для его скачивания
-            temp_file_path = "results/temp_result.xlsx"
-            with open(temp_file_path, "wb") as f:
-                f.write(task_result["result"])
+            # Рендерим страницу для скачивания файла
             return templates.TemplateResponse(
                 "result_file.html",
                 {
                     "request": request,
-                    "result": f"/download/{os.path.basename(temp_file_path)}",
+                    "result": f"/download/{task_id}",  # Используем ID задачи
                 },
             )
     return RedirectResponse("/")
 
 
 # Эндпоинт для скачивания файла
-@app.get("/download/{filename}")
-async def download_file(filename: str):
-    file_path = f"results/{filename}"
-    return HTMLResponse(
-        content=open(file_path, "rb").read(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+@app.get("/download/{task_id}")
+async def download_file(task_id: str):
+    task_result = task_status.get(task_id)
+    if task_result and task_result["result"]:
+        # Передаем BytesIO как поток для скачивания
+        return StreamingResponse(
+            task_result["result"],
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={task_id}.xlsx"
+            },
+        )
+    return {"error": "File not found"}
 
 
 if __name__ == "__main__":
