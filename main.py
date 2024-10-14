@@ -69,13 +69,17 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
     )
 
     if user_text:
-        # Подготовка данных через PreprocessUseCases
+        # # Подготовка данных через PreprocessUseCases
         df_usecase = preprocess_use_case.get_summarized_data(path_list)
+        print("Данные по юзкейсам получены и обработаны")
         df_regulations = preprocess_regulations.get_embeddings_df()
+        print("Данные по регламентам получены и обработаны")
         # Получение пар текстов для модели
         df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
+        print("Получена связь текст из регламента - юзкейс")
         # Применение модели для обработки данных
-        result_df_path = model.model_work(df_for_model)
+        result_df_path = model.process_file(df_for_model)
+        print("LLM написала отзывы")
         df_result = pd.read_excel(result_df_path)
 
         # result_df_path = "results/model_data.xlsx"
@@ -105,7 +109,7 @@ def run_model_task(task_id, user_text=None, uploaded_files=None):
         # Получение пар текстов для модели
         df_for_model = get_pairs.get_two_texts(df_usecase, df_regulations)
         # Применение модели для обработки данных
-        result_df_path = model.model_work(df_for_model)
+        result_df_path = model.process_file(df_for_model)
         df_result = pd.read_excel(result_df_path)
 
         # result_df_path = "results/model_data.xlsx"
