@@ -10,6 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from transformers import BertModel, BertTokenizer
 import torch
 import pdfplumber
+from functools import lru_cache
 
 # Ensure NLTK stopwords are downloaded
 nltk.download("stopwords")
@@ -58,6 +59,11 @@ class PreprocessUseCases:
         full_text = [para.text for para in doc.paragraphs]
         return "\n".join(full_text)
 
+    def __read_txt(self, full_path):
+        # Implementation for reading .txt files
+        with open(full_path, "r", encoding="utf-8") as file:
+            return file.read()
+
     def __summarize_one_text(self, input_text):
         """
         Summarizes the input text using the T5 model.
@@ -68,24 +74,38 @@ class PreprocessUseCases:
             max_length=512,
             truncation=True,
         )
+
+        # Ensure inputs are on the same device as the model
+        input_ids = input_ids.to(self.model.device)
+
         summary_ids = self.model.generate(
-            input_ids, max_length=150, num_beams=4, early_stopping=True
+            input_ids,
+            max_length=150,
+            num_beams=4,
+            early_stopping=True,
+            decoder_start_token_id=self.tokenizer.pad_token_id,  # Set this to an appropriate start token if needed
         )
+
         summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary
 
-    def get_summarized_data(self, paths_list, uploads_dir="uploads"):
+    def get_summarized_data(self, paths_list):
         """
-        Processes a list of .docx file paths, summarizes their content, and returns a DataFrame.
+        Processes a list of .docx and .txt file paths, summarizes their content, and returns a DataFrame.
         """
         data = []
         for path in paths_list:
             if path.endswith(".docx"):
-                full_path = os.path.join(uploads_dir, path)
-                text = self.__read_docx(full_path)
-                summary = self.__summarize_one_text(text)
-                data.append([full_path, text, summary])
-        df = pd.DataFrame(data, columns=["path_of_file", "text", "summary"])
+                text = self.__read_docx(path)
+            elif path.endswith(".txt"):
+                text = self.__read_txt(path)
+            else:
+                continue  # Skip files that are not .docx or .txt
+
+            summary = self.__summarize_one_text(text)
+            data.append([text, summary])
+
+        df = pd.DataFrame(data, columns=["text", "summary"])
         return df
 
 
@@ -95,12 +115,19 @@ class PreprocessRegulations:
         Initializes the PreprocessRegulations class with the specified directory path.
         """
         self.path = path
-        model_name = (
-            "bert-base-uncased"  # You can choose other models, e.g., 'bert-base-cased'
-        )
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)
-        self.model = BertModel.from_pretrained(model_name)
+        # Load the pre-trained BERT model and tokenizer
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.model = BertModel.from_pretrained("bert-base-uncased")
 
+        # Move the model to GPU if available
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        self.model = self.model.to(self.device)
+
+    @lru_cache(maxsize=128)
     def __read_pdf(self, path):
         """
         Reads a PDF file and extracts its text, splitting it into sections based on a regex pattern.
@@ -187,41 +214,54 @@ class PreprocessRegulations:
         cl = dt.drop(["section1", "section2", "section3", "section4"], axis=1)
         return cl
 
+    @lru_cache(maxsize=128)
     def __prepare_regulations_df(self, path):
         """
         Walks through the specified directory and processes all PDF files.
         """
-        all_data = []
+        df_prev = pd.DataFrame()
         for root, dirs, files in os.walk(path):
             for file in files:
                 if file.endswith(".pdf"):
                     file_path = os.path.join(root, file)
-                    print(file_path)
                     df = self.__read_pdf(file_path)
                     subdirectory_name = os.path.basename(root)
                     df.insert(0, "Subdirectory", subdirectory_name)
-                    all_data.append(df)
-        if all_data:
-            regulations_df = pd.concat(all_data, ignore_index=True)
-            return regulations_df
-        else:
-            return pd.DataFrame()
+                    df_prev = pd.concat([df_prev, df], ignore_index=True)
+        return df_prev
 
+    @lru_cache(maxsize=128)
+    def get_embedding(self, text):
+        """
+        Generates an embedding for the given text using BERT and leverages GPU (CUDA) if available.
+        """
+        # Ensure the model is on the correct device
+        self.model.to(self.device)
+
+        # Tokenize the input text and move tensors to the same device
+        inputs = self.tokenizer(
+            text, return_tensors="pt", padding=True, truncation=True, max_length=512
+        ).to(
+            self.device
+        )  # Move inputs to the same device as the model
+
+        # Disable gradient calculation for efficiency
+        with torch.no_grad():
+            # Forward pass to get model outputs
+            outputs = self.model(**inputs)
+
+            # Extract the [CLS] token's embedding (first token of the sequence)
+            cls_embedding = outputs.last_hidden_state[:, 0, :]
+
+            # Move the embeddings back to the CPU and convert to numpy
+            return cls_embedding.cpu().numpy()
+
+    @lru_cache(maxsize=128)
     def get_embeddings_df(self):
         """
         Generates embeddings for different sections of the regulations using BERT.
         """
         text_preprocessor = TextPreprocessor()
-
-        def get_embedding(text):
-            inputs = self.tokenizer(
-                text, return_tensors="pt", padding=True, truncation=True, max_length=512
-            )
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                # Use the [CLS] token embedding
-                return outputs.last_hidden_state[:, 0, :].cpu().numpy()
-
         df = self.__prepare_regulations_df(self.path)
 
         # Generate embeddings for each hierarchical section
@@ -230,17 +270,28 @@ class PreprocessRegulations:
                 df[i]
                 .fillna("")
                 .apply(lambda x: text_preprocessor.clean_text(x))
-                .apply(lambda x: get_embedding(x.lower()) if x else None)
+                .apply(lambda x: self.get_embedding(x.lower()) if x else None)
             )
         return df
 
 
 class GetPairs:
     def __init__(self):
-        # Initialize the BERT tokenizer and model (ensure consistency with PreprocessRegulations)
-        model_name = "bert-base-uncased"
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)
-        self.model = BertModel.from_pretrained(model_name)
+        # Load the pre-trained BERT model and tokenizer
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.model = BertModel.from_pretrained("bert-base-uncased")
+
+        # Move the model to GPU if available
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        self.model = self.model.to(self.device)
+
+        # Initialize the T5 tokenizer and model for summarization
+        self.tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        self.model_t5 = T5ForConditionalGeneration.from_pretrained("t5-small")
 
     def calculate_cosine_similarity(self, embedding, target_embedding_2d):
         """
@@ -253,15 +304,28 @@ class GetPairs:
 
     def get_embedding(self, text):
         """
-        Generates an embedding for the given text using BERT.
+        Generates an embedding for the given text using BERT and leverages GPU (CUDA) if available.
         """
+        # Ensure the model is on the correct device
+        self.model.to(self.device)
+
+        # Tokenize the input text and move tensors to the same device
         inputs = self.tokenizer(
             text, return_tensors="pt", padding=True, truncation=True, max_length=512
-        )
+        ).to(
+            self.device
+        )  # Move inputs to the same device as the model
+
+        # Disable gradient calculation for efficiency
         with torch.no_grad():
+            # Forward pass to get model outputs
             outputs = self.model(**inputs)
-            # Use the [CLS] token embedding
-            return outputs.last_hidden_state[:, 0, :].cpu().numpy()
+
+            # Extract the [CLS] token's embedding (first token of the sequence)
+            cls_embedding = outputs.last_hidden_state[:, 0, :]
+
+            # Move the embeddings back to the CPU and convert to numpy
+            return cls_embedding.cpu().numpy()
 
     def get_two_texts(self, df_usecase, df_regulations):
         """
@@ -270,6 +334,35 @@ class GetPairs:
         text_preprocessor = TextPreprocessor()
         data = []
 
+        def summarize_one_text(input_text):
+            """
+            Summarizes the input text using the T5 model.
+            """
+            input_ids = self.tokenizer.encode(
+                "summarize: " + input_text,
+                return_tensors="pt",
+                max_length=512,
+                truncation=True,
+            )
+
+            # Ensure inputs are on the same device as the model
+            input_ids = input_ids.to(self.model_t5.device)
+
+            summary_ids = self.model_t5.generate(
+                input_ids,
+                max_length=150,
+                num_beams=4,
+                early_stopping=True,
+                decoder_start_token_id=self.tokenizer.pad_token_id,  # Set this to an appropriate start token if needed
+            )
+
+            summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+            return summary
+
+        # df_regulations = df_regulations.dropna(subset="Подпункт").copy()
+
+        # Initialize similarity keys for best_match
+        similarity_keys = ["Глава", "Подглава", "Подпункт", "под-подподпункт"]
         for idx, target in enumerate(df_usecase["summary"].values):
             cleaned_target = text_preprocessor.clean_text(target)
             target_embedding = self.get_embedding(cleaned_target.lower())
@@ -280,7 +373,11 @@ class GetPairs:
                 "regulation_summary": "",
             }
 
-            for i in ["Глава", "Подглава", "Подпункт", "под-подподпункт"]:
+            # Initialize similarity scores in best_match
+            for key in similarity_keys:
+                best_match[f"similarity_{key}"] = 0  # Set default similarity to 0
+
+            for i in similarity_keys:
                 similarity_col = f"similarity_{i}"
                 emb_col = f"emb_{i}"
                 if emb_col in df_regulations.columns:
@@ -292,7 +389,7 @@ class GetPairs:
                         pd.notnull(max_similarity)
                         and max_similarity > best_match[similarity_col]
                     ):
-                        # best_match[f"similarity_{i}"] = max_similarity
+                        # Find the matching row
                         match_row = df_regulations.loc[
                             df_regulations[similarity_col] == max_similarity
                         ].iloc[0]
@@ -304,11 +401,17 @@ class GetPairs:
                         else:
                             best_match["regulation_summary"] = match_row[i]
 
+                        # Store the maximum similarity for the current section
+                        best_match[similarity_col] = max_similarity
+
             data.append(best_match)
 
         # Create DataFrame from the collected data
         result_df = pd.DataFrame(data)
-        # Export the results to an Excel file
-        output_path = "results/model_data.xlsx"
-        result_df.to_excel(output_path, index=False)
-        return output_path
+
+        # Summarize the regulation_summary column
+        result_df["regulation_summary"] = result_df["regulation_summary"].apply(
+            lambda x: summarize_one_text(x) if x else ""
+        )
+
+        return result_df

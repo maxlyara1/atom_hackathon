@@ -1,1 +1,13 @@
-Preconditions - driving below approximately 32 km/h or while driving in reverse Main Scenario - Car emit sound out_27, because EV operate quietly, and this sound helps to alert pedestrians of your oncoming vehicle.
+New OC Section: 09 Navigation and Entertainment / Acoustic Vehicle Alerting System (AVAS)
+
+Description: 
+Title: Vehicle Alerting System fault
+Goal: To provide granted indications that AVAS function has problems
+Scope: AVAS and other car systems
+Actors: N/A
+Preconditions: AVAS operating normally
+Trigger: AVAS has malfunction
+Main scenario: N/A
+Postconditions:
+- SWP out_2 displays msg
+- Push notification inside Atom mobile app out_5 and out_44 ATOM HUB
